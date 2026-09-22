@@ -206,8 +206,8 @@ handler, а не превращает существующий coordinator в Go
 
 1. Crafting Table читает Recipe Catalog и snapshot Inventory, затем отправляет
    одну craft command с `CommandId`, `RecipeId` и `InventoryId`.
-2. Crafting Service разрешает неизменяемые recipe data и запрашивает у владельца
-   Inventory один атомарный transform inputs в outputs.
+2. Crafting Service находит неизменяемое определение рецепта и запрашивает у
+   владельца Inventory один атомарный transform inputs в outputs.
 3. Нехватка ingredients, недостаточная output capacity или дубликат command
    оставляют quantities без изменений. UI наблюдает только типизированный
    result/event.
