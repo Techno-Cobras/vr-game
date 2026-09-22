@@ -1,0 +1,31 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 5
+
+[agents.explorer]
+description = "Read-only codebase exploration and dependency mapping."
+config_file = "./agents/explorer.toml"
+
+[agents.architect]
+description = "Read-only architecture planning for substantial game and VR changes."
+config_file = "./agents/architect.toml"
+
+[agents.gameplay]
+description = "Gameplay and VR implementation using the verified project engine and dependencies."
+config_file = "./agents/gameplay.toml"
+
+[agents.implementer]
+description = "Scoped production implementation after exploration and planning."
+config_file = "./agents/implementer.toml"
+
+[agents.tester]
+description = "Build, test, lint, regression, integration, and edge-case validation."
+config_file = "./agents/tester.toml"
+
+[agents.reviewer]
+description = "Independent read-only review of the task-branch diff before merge."
+config_file = "./agents/reviewer.toml"
