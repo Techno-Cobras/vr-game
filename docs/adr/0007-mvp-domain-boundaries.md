@@ -59,10 +59,10 @@ Every mutable field has exactly one authoritative owner.
 | Items | Item Catalog | Immutable item definitions, categories, stack rules, and representation keys | Display names, scene objects, and physical item instances |
 | Inventory | One Inventory aggregate per player or container, accessed through Inventory Service | `ItemId -> quantity`, optional capacity, and aggregate version | Physical objects, container UI, crafting, shop, or delivery presenters |
 | Plants | One Planting Slot aggregate per slot; Plant Catalog owns definitions only | Occupancy, plant type, lifecycle, elapsed/progress, water threshold/request, fertilizer modifier, and version | Plant visuals, indicators, tools, and shared plant definitions |
-| Crafting | Recipe Catalog owns definitions; Crafting Service coordinates a transaction | Only bounded command idempotency/in-flight state when required | Ingredient or output quantities, which remain owned by Inventory |
+| Crafting | Recipe Catalog owns definitions; Crafting Service coordinates a transaction | Only session-scoped command idempotency/in-flight state when required | Ingredient or output quantities, which remain owned by Inventory |
 | Orders | Order Service and its Order aggregates | Generated orders, lifecycle, active order identity, and the single-active-order invariant | Order Board, waypoint, inventory quantities, and money |
 | Economy | Economy Service | Non-negative integer balance, reasoned ledger entries, and command idempotency | UI text, orders, shop, or rewards configuration |
-| Shop | Shop Catalog owns offers; Purchase Service coordinates a transaction | Immutable offers and bounded purchase-command idempotency respectively | Balance and delivery entries |
+| Shop | Shop Catalog owns offers; Purchase Service coordinates a transaction | Immutable offers and session-scoped purchase-command idempotency respectively | Balance and delivery entries |
 | Delivery | Delivery Queue | FIFO entries, item, quantity, status, order, version, and claim state | Delivery Box slots and spawned physical objects |
 | Indicators | Indicator Presenter | Visual handle, bound target, and currently rendered variant | Water need, harvest readiness, active order, or delivery state |
 
@@ -90,6 +90,9 @@ Runtime identifiers include `InventoryId`, `PlantingSlotId`, `OrderId`, and
 - Re-entry-prone commands carry a `CommandId`; related operations and events
   carry a `CorrelationId`. Repeating a completed `CommandId` returns the prior
   result and does not repeat mutation.
+- An idempotency key is scoped by gameplay session, handler/command type, and
+  `CommandId`. The completed result is retained until that gameplay session ends,
+  so an in-session callback cannot repeat a mutation after eviction.
 
 ### Quantities and money
 
