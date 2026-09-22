@@ -24,6 +24,18 @@ Do not infer Unity, Unreal Engine, Godot, or any XR package until the correspond
 
 No game systems, scenes/maps, startup flow, player architecture, interaction system, input configuration, or gameplay state implementation are present yet.
 
+The engine-independent MVP domain boundaries are defined by
+[ADR 0007](adr/0007-mvp-domain-boundaries.md). DATA provides immutable validated
+definitions; DOMAIN / GAME LOGIC owns all authoritative runtime state; VR
+INTERACTION and UI / PRESENTATION translate intent and observe queries/events.
+Outer layers may call public domain application contracts, while Domain never
+depends on engine, VR, scene, or UI types.
+
+Each mutable value has one owner. Cross-system changes use narrow, named atomic
+handlers; physical objects and presenters are never alternate stores. Concrete
+engine mappings remain undefined until the engine and project skeleton are
+committed.
+
 ## Dependencies
 
 No dependency manifest is present.
