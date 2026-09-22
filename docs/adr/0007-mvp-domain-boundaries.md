@@ -1,34 +1,40 @@
-# ADR 0007: MVP domain boundaries and state ownership
+# ADR 0007: Границы доменов MVP и владение состоянием
 
-- Status: Accepted
-- Date: 2026-09-22
-- Decision owners: gameplay architecture contributors
-- Related issue: [#7](https://github.com/Techno-Cobras/vr-game/issues/7)
+- Статус: принято
+- Дата: 2026-09-22
+- Владельцы решения: участники, отвечающие за архитектуру gameplay
+- Связанная задача: [#7](https://github.com/Techno-Cobras/vr-game/issues/7)
 
-## Context
+## Контекст
 
-The MVP gameplay systems will be implemented in parallel, before an engine or XR
-framework has been committed. They need stable, engine-independent boundaries so
-that a scene object, UI presenter, or integration service cannot become a second
-source of truth.
+Gameplay-системы MVP будут разрабатываться параллельно до того, как в репозитории
+появятся выбранный движок и XR-фреймворк. Им нужны стабильные, независимые от
+движка границы, чтобы scene object, UI presenter или интеграционный сервис не
+могли стать вторым источником истины.
 
-This decision covers items, inventory, plants, crafting, orders, economy, shop,
-delivery, and indicators. It defines ownership and contracts, but not concrete
-classes, engine assets, persistence, threading, or an event-bus implementation.
+Это решение охватывает предметы, инвентарь, растения, крафт, заказы, экономику,
+магазин, доставку и индикаторы. Оно определяет владение состоянием и контракты,
+но не конкретные классы, engine assets, сохранение, многопоточность или
+реализацию event bus.
 
-## Decision
+В соответствии с терминологией задач [#13](https://github.com/Techno-Cobras/vr-game/issues/13),
+[#15](https://github.com/Techno-Cobras/vr-game/issues/15) и
+[#32](https://github.com/Techno-Cobras/vr-game/issues/32), слово «саженец» в этом
+ADR обозначает предмет `seed` в инвентаре, а не уже посаженный экземпляр растения.
 
-### Layers and dependency direction
+## Решение
 
-| Layer | Responsibility | May depend on |
+### Слои и направление зависимостей
+
+| Слой | Ответственность | Допустимые зависимости |
 | --- | --- | --- |
-| DATA | Immutable, validated definitions and catalogs | Stable value types and other DATA definitions |
-| DOMAIN / GAME LOGIC | Aggregates, services, command handlers, queries, events, and transaction coordinators | DATA contracts and narrow runtime-neutral ports such as time, random, event sink, and session transaction |
-| VR INTERACTION | Converts input, grab, collision, and tool actions into one domain command; materializes physical representations | Public domain commands, queries, results, and events |
-| UI / PRESENTATION | Read models, world-space indicators, feedback, and screens | Public domain queries, results, and events; commands only to express player intent |
+| DATA | Неизменяемые валидированные definitions и каталоги | Стабильные value types и другие DATA definitions |
+| DOMAIN / GAME LOGIC | Aggregates, сервисы, command handlers, queries, events и transaction coordinators | DATA-контракты и узкие независимые от runtime порты: время, случайность, event sink и session transaction |
+| VR INTERACTION | Преобразует input, grab, collision и действия инструментов в одну domain command; материализует физические representations | Публичные domain commands, queries, results и events |
+| UI / PRESENTATION | Read models, world-space indicators, feedback и экраны | Публичные domain queries, results и events; commands — только для выражения намерения игрока |
 
-The composition root may see every layer for construction and lifecycle wiring,
-but contains no gameplay rules.
+Composition root может видеть все слои для создания объектов и связывания их
+lifecycle, но не содержит gameplay-правил.
 
 ```text
 VR INTERACTION -----+
@@ -38,217 +44,223 @@ UI / PRESENTATION --+             |
        +------- results/events ----+
 ```
 
-The following dependencies are forbidden:
+Запрещены следующие зависимости:
 
-- DOMAIN or DATA depending on engine, XR, scene, VR, or UI types;
-- UI or VR adapters writing directly to an aggregate or state store;
-- one domain system reaching into another system's internal state;
-- DATA definitions containing mutable runtime state;
-- events acting as hidden synchronous commands between state owners.
+- DOMAIN или DATA от типов движка, XR, scene, VR или UI;
+- прямая запись UI- или VR-адаптеров в aggregate или state store;
+- доступ одной domain-системы к внутреннему состоянию другой;
+- изменяемое runtime-состояние внутри DATA definitions;
+- использование events как скрытых синхронных commands между владельцами состояния.
 
-A cross-system workflow uses a named transaction coordinator and the owners'
-narrow public contracts. A coordinator owns orchestration and idempotency only;
-it never copies the balance, quantities, lifecycle, or queue it coordinates.
+Cross-system workflow использует именованный transaction coordinator и узкие
+публичные контракты владельцев. Coordinator владеет только orchestration и
+idempotency; он не копирует balance, quantities, lifecycle или queue, работу с
+которыми координирует.
 
-### State ownership
+### Владение состоянием
 
-Every mutable field has exactly one authoritative owner.
+У каждого изменяемого поля есть ровно один авторитетный владелец.
 
-| System | Authoritative owner | Owned state | Explicitly not authoritative |
+| Система | Авторитетный владелец | Состояние во владении | Что явно не является источником истины |
 | --- | --- | --- | --- |
-| Items | Item Catalog | Immutable item definitions, categories, stack rules, and representation keys | Display names, scene objects, and physical item instances |
-| Inventory | One Inventory aggregate per player or container, accessed through Inventory Service | `ItemId -> quantity`, optional capacity, and aggregate version | Physical objects, container UI, crafting, shop, or delivery presenters |
-| Plants | One Planting Slot aggregate per slot; Plant Catalog owns definitions only | Occupancy, plant type, lifecycle, elapsed/progress, water threshold/request, fertilizer modifier, and version | Plant visuals, indicators, tools, and shared plant definitions |
-| Crafting | Recipe Catalog owns definitions; Crafting Service coordinates a transaction | Only session-scoped command idempotency/in-flight state when required | Ingredient or output quantities, which remain owned by Inventory |
-| Orders | Order Service and its Order aggregates | Generated orders, lifecycle, active order identity, and the single-active-order invariant | Order Board, waypoint, inventory quantities, and money |
-| Economy | Economy Service | Non-negative integer balance, reasoned ledger entries, and command idempotency | UI text, orders, shop, or rewards configuration |
-| Shop | Shop Catalog owns offers; Purchase Service coordinates a transaction | Immutable offers and session-scoped purchase-command idempotency respectively | Balance and delivery entries |
-| Delivery | Delivery Queue | FIFO entries, item, quantity, status, order, version, and claim state | Delivery Box slots and spawned physical objects |
-| Indicators | Indicator Presenter | Visual handle, bound target, and currently rendered variant | Water need, harvest readiness, active order, or delivery state |
+| Предметы | Item Catalog | Неизменяемые item definitions, категории, stack rules и representation keys | Display names, scene objects и физические экземпляры предметов |
+| Инвентарь | Один Inventory aggregate на игрока или контейнер, доступный через Inventory Service | `ItemId -> quantity`, опциональная capacity и версия aggregate | Физические объекты, UI контейнера, crafting, shop и delivery presenters |
+| Растения | Один Planting Slot aggregate на слот; Plant Catalog владеет только definitions | Occupancy, plant type, lifecycle, elapsed/progress, water threshold/request, fertilizer modifier и версия | Визуал растения, индикаторы, инструменты и общие plant definitions |
+| Крафт | Recipe Catalog владеет definitions; Crafting Service координирует транзакцию | Только ограниченное сессией состояние command idempotency/in-flight при необходимости | Quantities ингредиентов и результата — ими продолжает владеть Inventory |
+| Заказы | Order Service и его Order aggregates | Созданные заказы, lifecycle, identity активного заказа и инвариант единственного активного заказа | Order Board, waypoint, quantities инвентаря и деньги |
+| Экономика | Economy Service | Неотрицательный целочисленный balance, ledger entries с причиной и command idempotency | UI-текст, заказы, магазин и конфигурация наград |
+| Магазин | Shop Catalog владеет offers; Purchase Service координирует транзакцию | Неизменяемые offers и ограниченная сессией idempotency purchase commands соответственно | Balance и delivery entries |
+| Доставка | Delivery Queue | FIFO entries, item, quantity, status, порядок, версия и claim state | Слоты Delivery Box и созданные физические объекты |
+| Индикаторы | Indicator Presenter | Visual handle, привязанный target и отображаемый variant | Потребность в воде, готовность к сбору, активный заказ и состояние доставки |
 
-Derived values are not duplicated state. For example, `ReadyForDelivery` is a
-query over the active order and inventory, while indicator visibility is a
-projection that can be rebuilt from queries and events.
+Вычисляемые значения не дублируют состояние. Например, `ReadyForDelivery` — это
+query над активным заказом и inventory, а видимость индикатора — projection,
+которую можно восстановить из queries и events.
 
-### Stable identifiers
+### Стабильные идентификаторы
 
-Definition identifiers are strongly typed and author-defined, for example
-`ItemId`, `PlantTypeId`, `RecipeId`, `OrderTemplateId`, and `ShopOfferId`.
-Runtime identifiers include `InventoryId`, `PlantingSlotId`, `OrderId`, and
+Идентификаторы definitions строго типизированы и задаются автором данных,
+например `ItemId`, `PlantTypeId`, `RecipeId`, `OrderTemplateId` и `ShopOfferId`.
+Runtime-идентификаторы включают `InventoryId`, `PlantingSlotId`, `OrderId` и
 `DeliveryEntryId`.
 
-- Serialized definition IDs use canonical lowercase ASCII namespaced values,
-  such as `item.seed.basil`, with ordinal case-sensitive comparison.
-- An ID is unique within its type, immutable after publication, and never reused
-  for a different meaning.
-- Display names, collection positions, filesystem paths, scene paths, and engine
-  instance IDs are never domain identifiers.
-- Catalog validation rejects duplicate IDs, missing references, incompatible
-  categories, and invalid definitions before gameplay starts.
-- Runtime IDs are unique for the session. Persistence and save migration remain
-  outside MVP scope until explicitly designed.
-- Re-entry-prone commands carry a `CommandId`; related operations and events
-  carry a `CorrelationId`. Repeating a completed `CommandId` returns the prior
-  result and does not repeat mutation.
-- An idempotency key is scoped by gameplay session, handler/command type, and
-  `CommandId`. The completed result is retained until that gameplay session ends,
-  so an in-session callback cannot repeat a mutation after eviction.
+- Сериализованные definition IDs используют канонические lowercase ASCII
+  namespaced-значения, например `item.seed.basil`, и ordinal case-sensitive
+  comparison.
+- ID уникален внутри своего типа, неизменяем после публикации и никогда не
+  переиспользуется с другим смыслом.
+- Display names, позиции в коллекции, пути файловой системы, scene paths и
+  engine instance IDs никогда не являются domain identifiers.
+- Валидация каталогов отклоняет дубли ID, отсутствующие ссылки, несовместимые
+  категории и некорректные definitions до начала gameplay.
+- Runtime IDs уникальны в пределах сессии. Persistence и миграции сохранений
+  остаются вне scope MVP, пока не будут спроектированы отдельно.
+- Commands, подверженные повторному входу, содержат `CommandId`; связанные
+  операции и events содержат `CorrelationId`. Повтор завершённого `CommandId`
+  возвращает прежний result и не повторяет mutation.
+- Idempotency key ограничен gameplay-сессией и включает session, handler/command
+  type и `CommandId`. Завершённый result хранится до конца gameplay-сессии,
+  поэтому callback внутри сессии не сможет повторить mutation после eviction.
 
-### Quantities and money
+### Количества и деньги
 
-- Item quantity is an integer value: stored counts are at least zero and command
-  inputs, production amounts, and consumption amounts are greater than zero.
-- A missing item has quantity zero. Negative quantities and floating-point item
-  counts are invalid; signed deltas are allowed only as event facts.
-- Batch operations normalize duplicate item IDs, check arithmetic overflow,
-  validate every input, and commit all changes or none.
-- Currency is a separate non-negative integer minor-unit value. It is not an
-  item quantity, and only Economy Service may mutate it.
-- Growth progress in `[0, 1]`, elapsed time, duration, and modifiers use distinct
-  value types and are never represented as item quantities.
-- A physical representation normally represents one item unless its definition
-  explicitly supports a stack representation. Authority remains with Inventory
-  or a Delivery Queue entry, never with the transform or scene object.
+- Item quantity — целочисленное значение: хранимые counts не меньше нуля, а
+  command inputs, produced amounts и consumed amounts больше нуля.
+- Отсутствующий item имеет quantity zero. Отрицательные quantities и
+  floating-point item counts недопустимы; signed deltas разрешены только как
+  факты в events.
+- Batch operations нормализуют повторяющиеся item IDs, проверяют arithmetic
+  overflow, валидируют все inputs и фиксируют либо все изменения, либо ни одного.
+- Currency — отдельное неотрицательное целое значение в минимальных денежных
+  единицах. Это не item quantity, и изменять его может только Economy Service.
+- Growth progress в диапазоне `[0, 1]`, elapsed time, duration и modifiers
+  используют отдельные value types и никогда не представляются item quantities.
+- Физическая representation обычно представляет один item, если definition явно
+  не разрешает stack representation. Источником истины остаётся Inventory или
+  Delivery Queue entry, а не transform или scene object.
 
-### Commands, queries, and events
+### Команды, запросы и события
 
-**Commands** express imperative intent and target one public application API.
-Each command has exactly one handler, returns a typed success or rejection, and
-changes nothing on rejection. Commands that can be produced twice by VR input
-or callbacks use a `CommandId`; stale physical callbacks may also provide an
-expected aggregate version. Command execution is serialized within a gameplay
-session.
+**Commands** выражают намерение в повелительной форме и адресованы одному
+публичному application API. У каждой command ровно один handler; она возвращает
+типизированный success или rejection и при отказе ничего не изменяет. Commands,
+которые могут дважды возникнуть из VR input или callbacks, используют
+`CommandId`; устаревшие физические callbacks также могут передавать ожидаемую
+версию aggregate. Выполнение commands сериализовано внутри gameplay-сессии.
 
-**Queries** are read-only and return immutable snapshots or read models. They do
-not expose aggregates or mutable collections. A query never reserves, consumes,
-or advances state.
+**Queries** доступны только для чтения и возвращают неизменяемые snapshots или
+read models. Они не раскрывают aggregates или mutable collections. Query никогда
+не резервирует, не расходует и не продвигает состояние.
 
-**Events** are immutable, past-tense facts published only after a successful
-commit. An event identifies its owner/entity, aggregate version or sequence,
-reason, correlation/command ID, and the before/after value or delta required by
-observers. Consumers tolerate replay and duplication. Events update projections
-or schedule a later explicit command; they do not provide a backdoor for nested
-owner mutation.
+**Events** — неизменяемые факты в прошедшем времени, публикуемые только после
+успешного commit. Event указывает owner/entity, aggregate version или sequence,
+reason, correlation/command ID и before/after value либо delta, необходимые
+наблюдателям. Consumers устойчивы к replay и duplication. Events обновляют
+projections или планируют более позднюю явную command, но не дают обходного пути
+для вложенной mutation владельца.
 
-Representative events include `InventoryChanged`, `PlantStateChanged`,
-`WaterRequested`, `PlantReady`, `CraftCompleted`, `OrderAccepted`,
-`OrderCompleted`, `BalanceChanged`, `PurchaseCompleted`, and
-`DeliveryEntryChanged`. Names are conceptual until an implementation language
-and naming convention are committed.
+Примеры events: `InventoryChanged`, `PlantStateChanged`, `WaterRequested`,
+`PlantReady`, `CraftCompleted`, `OrderAccepted`, `OrderCompleted`,
+`BalanceChanged`, `PurchaseCompleted` и `DeliveryEntryChanged`. Имена остаются
+концептуальными до выбора языка реализации и naming convention.
 
-### Public cross-system contracts
+### Публичные межсистемные контракты
 
-These are conceptual capability boundaries, not prescribed interface names:
+Это концептуальные границы возможностей, а не предписанные имена interfaces:
 
-| Capability | Commands | Queries/events |
+| Возможность | Команды | Запросы/события |
 | --- | --- | --- |
-| Catalogs | Validate at startup | Resolve item, plant, recipe, order-template, and shop-offer definitions by stable ID |
-| Inventory | Atomic transfer, add, consume, and transform | Quantity/capacity snapshot; `InventoryChanged` |
-| Plants | Plant, advance time, water, apply fertilizer, harvest/reset through a coordinator | Slot snapshot; state, water, and readiness events |
-| Crafting | Craft recipe once | Available recipes, requirements, typed result; `CraftCompleted` |
-| Orders | Generate, accept, complete, or cancel according to lifecycle | Available/active order and readiness snapshots; lifecycle events |
-| Economy | `TrySpend` and `Credit` with reason and command identity | Balance snapshot; `BalanceChanged` |
-| Shop | Purchase an offer once | Offer catalog and typed purchase result |
-| Delivery | Enqueue, mark available after materialization, and claim once | Ordered queue snapshot; `DeliveryEntryChanged` |
-| Indicators | Show, rebind, reconcile, and hide visual projections | Consumes domain queries/events; emits no gameplay mutation |
+| Каталоги | Валидация при старте | Разрешение item, plant, recipe, order-template и shop-offer definitions по стабильному ID |
+| Инвентарь | Атомарные transfer, add, consume и transform | Snapshot quantity/capacity; `InventoryChanged` |
+| Растения | Plant, advance time, water, apply fertilizer, harvest/reset через coordinator | Snapshot слота; state, water и readiness events |
+| Крафт | Однократный craft recipe | Доступные recipes, requirements, типизированный result; `CraftCompleted` |
+| Заказы | Generate, accept, complete или cancel по lifecycle | Snapshots доступного/активного заказа и readiness; lifecycle events |
+| Экономика | `TrySpend` и `Credit` с причиной и command identity | Snapshot balance; `BalanceChanged` |
+| Магазин | Однократная покупка offer | Offer catalog и типизированный purchase result |
+| Доставка | Enqueue, mark available после materialization и однократный claim | Упорядоченный snapshot queue; `DeliveryEntryChanged` |
+| Индикаторы | Show, rebind, reconcile и hide визуальных projections | Потребляет domain queries/events; не создаёт gameplay mutations |
 
-Runtime-neutral ports include an injected time source, random source, domain
-event sink, and session transaction boundary. Their concrete implementations are
-deferred until the engine and execution model are selected.
+Runtime-neutral ports включают injected time source, random source, domain event
+sink и session transaction boundary. Их конкретные реализации откладываются до
+выбора движка и execution model.
 
-### Atomic cross-owner workflows
+### Атомарные процессы с несколькими владельцами
 
-The named handlers below prevalidate every participant, commit through a session
-transaction/unit of work (or a proven no-fail commit under the serialized
-dispatcher), and publish events only after the whole operation succeeds.
+Именованные handlers ниже предварительно валидируют каждого участника, выполняют
+commit через session transaction/unit of work (либо доказуемо безошибочный commit
+в serialized dispatcher) и публикуют events только после успеха всей операции.
 
-| Handler | Coordinated owners and commit rule |
+| Обработчик | Координируемые владельцы и правило фиксации |
 | --- | --- |
-| Plant Seed | Inventory consumes one seed and Planting Slot moves `Empty -> Growing`, or neither changes |
-| Apply Fertilizer | Planting Slot accepts one modifier and Inventory consumes one fertilizer, or neither changes |
-| Harvest | Inventory accepts the configured output before Planting Slot resets, or the ready plant remains intact |
-| Craft Recipe | Inventory atomically transforms all recipe inputs into configured outputs |
-| Deliver Order | Inventory consumes the exact medicine, Order completes once, and Economy credits once, or none changes |
-| Purchase | Economy spends the exact price and Delivery Queue enqueues the exact product, or neither changes |
-| Claim Delivery | Inventory accepts the item and Delivery Queue marks the entry claimed, or the entry remains retryable |
+| Посадка (`Plant Seed`) | Inventory расходует один seed, а Planting Slot переходит `Empty -> Growing`, либо не меняется ничего |
+| Применение удобрения (`Apply Fertilizer`) | Planting Slot принимает один modifier, а Inventory расходует одно удобрение, либо не меняется ничего |
+| Сбор (`Harvest`) | Inventory принимает настроенный output до сброса Planting Slot, иначе готовое растение сохраняется |
+| Крафт (`Craft Recipe`) | Inventory атомарно преобразует все recipe inputs в настроенные outputs |
+| Сдача заказа (`Deliver Order`) | Inventory расходует точное medicine, Order завершается один раз, Economy начисляет reward один раз, либо не меняется ничего |
+| Покупка (`Purchase`) | Economy списывает точную цену, а Delivery Queue добавляет точный product, либо не меняется ничего |
+| Получение доставки (`Claim Delivery`) | Inventory принимает item, а Delivery Queue отмечает entry как claimed, иначе entry остаётся доступной для повтора |
 
-No generic `GameManager`, global mutable service locator, or aggregate spanning
-all systems is permitted. New cross-system flows receive a narrow named handler
-rather than expanding an existing coordinator into a God Object.
+Запрещены общий `GameManager`, глобальный mutable service locator и aggregate,
+объединяющий все системы. Новый cross-system flow получает узкий именованный
+handler, а не превращает существующий coordinator в God Object.
 
-## Scenario ownership audit
+## Проверка владельцев по сценариям
 
-The issue scenarios are walked through here to verify that every mutation has a
-single owner.
+Ниже разобраны сценарии из issues, чтобы подтвердить единственного владельца
+каждого изменения состояния.
 
-### Scenario A: seed to harvested plant ([#32](https://github.com/Techno-Cobras/vr-game/issues/32))
+### Сценарий A: от саженца до собранного растения ([#32](https://github.com/Techno-Cobras/vr-game/issues/32))
 
-1. The seed-station adapter requests a transfer between container and player
-   Inventory owners only after successful handoff; a spawn failure loses nothing.
-2. Plant Seed atomically consumes one seed in Inventory and moves the target
-   Planting Slot from `Empty` to `Growing`. An occupied slot changes neither.
-3. Only Planting Slot advances progress, selects and stores its water threshold,
-   enters `NeedsWater`, applies one fertilizer modifier, reaches
-   `ReadyToHarvest`, and resumes after valid watering.
-4. Water and ready indicators merely project the slot snapshot/events.
-5. Harvest atomically adds the configured output to Inventory and then resets
-   the Planting Slot. A failed add preserves the ready plant.
+1. Adapter склада саженцев запрашивает transfer между Inventory контейнера и
+   игрока только после успешной передачи; ошибка spawn ничего не теряет.
+2. Посадка атомарно расходует один seed в Inventory и переводит целевой Planting
+   Slot из `Empty` в `Growing`. Занятый slot не изменяет ни одну систему.
+3. Только Planting Slot продвигает progress, выбирает и хранит water threshold,
+   входит в `NeedsWater`, применяет один fertilizer modifier, достигает
+   `ReadyToHarvest` и продолжает рост после валидного полива.
+4. Индикаторы воды и готовности только проецируют snapshot/events слота.
+5. Сбор атомарно добавляет настроенный output в Inventory и затем сбрасывает
+   Planting Slot. Ошибка add сохраняет готовое растение.
 
-### Scenario B: plants to medicine ([#33](https://github.com/Techno-Cobras/vr-game/issues/33))
+### Сценарий B: от растений до лекарства ([#33](https://github.com/Techno-Cobras/vr-game/issues/33))
 
-1. The Crafting Table reads Recipe Catalog and an Inventory snapshot, then sends
-   one craft command with `CommandId`, `RecipeId`, and `InventoryId`.
-2. Crafting Service resolves immutable recipe data and asks the Inventory owner
-   for one atomic input-to-output transform.
-3. Missing ingredients, insufficient output capacity, or a duplicate command
-   leaves all quantities unchanged. UI observes only the typed result/event.
+1. Crafting Table читает Recipe Catalog и snapshot Inventory, затем отправляет
+   одну craft command с `CommandId`, `RecipeId` и `InventoryId`.
+2. Crafting Service разрешает неизменяемые recipe data и запрашивает у владельца
+   Inventory один атомарный transform inputs в outputs.
+3. Нехватка ingredients, недостаточная output capacity или дубликат command
+   оставляют quantities без изменений. UI наблюдает только типизированный
+   result/event.
 
-### Scenario C: accepted order to payment ([#34](https://github.com/Techno-Cobras/vr-game/issues/34))
+### Сценарий C: от принятия заказа до оплаты ([#34](https://github.com/Techno-Cobras/vr-game/issues/34))
 
-1. The Order Board sends `AcceptOrder`; only Order Service changes the active
-   order and lifecycle. The waypoint projects that state.
-2. A wrong or partial delivery is rejected without mutation.
-3. Deliver Order atomically consumes exact medicine in Inventory, completes the
-   Order once, and credits the reward through Economy Service once.
-4. Repeated delivery returns a prior/already-completed result. The waypoint hides
-   in response to the committed lifecycle, not by changing the order.
+1. Order Board отправляет `AcceptOrder`; только Order Service меняет active order
+   и lifecycle. Waypoint проецирует это состояние.
+2. Неправильная или неполная доставка отклоняется без mutation.
+3. Сдача заказа атомарно расходует точное medicine в Inventory, один раз
+   завершает Order и один раз начисляет reward через Economy Service.
+4. Повторная доставка возвращает прежний/already-completed result. Waypoint
+   скрывается в ответ на committed lifecycle, а не изменяет заказ.
 
-### Scenario D: tablet purchase to resource use ([#35](https://github.com/Techno-Cobras/vr-game/issues/35))
+### Сценарий D: от покупки на планшете до использования ([#35](https://github.com/Techno-Cobras/vr-game/issues/35))
 
-1. Tablet UI queries Shop Catalog and Economy, then sends one purchase command.
-2. Purchase atomically spends through Economy Service and enqueues through
-   Delivery Queue. Invalid products, insufficient funds, or duplicate commands
-   do not create a partial spend or a second entry.
-3. Delivery Box materializes pending entries, but Delivery Queue remains the
-   source of truth when capacity or spawning fails.
-4. Claim Delivery transfers the exact item to Inventory and marks the queue entry
-   `Claimed` only after successful handoff; otherwise it stays retryable.
-5. Planting or fertilizing later consumes the resource through the corresponding
-   named handler, not through the physical representation.
+1. Tablet UI запрашивает Shop Catalog и Economy, затем отправляет одну purchase
+   command.
+2. Покупка атомарно списывает деньги через Economy Service и добавляет запись
+   через Delivery Queue. Некорректный product, недостаток средств или дубликат
+   command не приводят к частичному списанию или второй entry.
+3. Delivery Box материализует pending entries, но Delivery Queue остаётся
+   источником истины при недостатке capacity или ошибке spawn.
+4. Получение доставки переносит точный item в Inventory и отмечает queue entry
+   как `Claimed` только после успешной передачи; иначе она остаётся retryable.
+5. Последующая посадка или применение удобрения расходует ресурс через
+   соответствующий именованный handler, а не через physical representation.
 
-### Scenario E: repeatable gameplay loop ([#36](https://github.com/Techno-Cobras/vr-game/issues/36))
+### Сценарий E: полный повторяемый gameplay loop ([#36](https://github.com/Techno-Cobras/vr-game/issues/36))
 
-Compose A, B, C, and D in one session. At every boundary assert exact Inventory
-quantities, one Planting Slot lifecycle, one active/completed Order, the exact
-Economy delta, and one Delivery Queue enqueue/claim. Begin the second cultivation
-cycle with the purchased resource without direct state injection. Scenario E is
-an ownership audit across existing handlers, not a new orchestrating service.
+Сценарии A, B, C и D объединяются в одной сессии. На каждой границе проверяются
+точные Inventory quantities, один lifecycle Planting Slot, один
+active/completed Order, точная Economy delta и один enqueue/claim Delivery Queue.
+Второй цикл выращивания начинается с купленного ресурса без прямой подмены
+состояния. Сценарий E — проверка владельцев существующих handlers, а не новый
+координирующий сервис.
 
-## Consequences
+## Последствия
 
-- Gameplay state remains testable without VR or engine objects.
-- Parallel subsystem work can rely on stable ownership and transaction seams.
-- UI, indicators, and physical objects can be destroyed and rebuilt without
-  losing authoritative state.
-- Cross-owner workflows require explicit transaction and idempotency design,
-  which adds contracts but prevents partial state and duplicate rewards/items.
-- Future implementation should add dependency checks proving that Domain has no
-  engine/UI/VR references and that presentation cannot write state stores.
+- Gameplay state можно тестировать без VR- или engine objects.
+- Параллельная разработка подсистем может опираться на стабильных владельцев и
+  transaction seams.
+- UI, индикаторы и физические объекты можно уничтожать и восстанавливать без
+  потери авторитетного состояния.
+- Cross-owner workflows требуют явного проектирования transaction и idempotency.
+  Это добавляет контракты, но предотвращает partial state и дубли наград/items.
+- Будущая реализация должна добавить dependency checks, подтверждающие отсутствие
+  engine/UI/VR references в Domain и невозможность записи presentation в state stores.
 
-## Deferred decisions
+## Отложенные решения
 
-Engine and version, XR runtime/framework, input phases, physics/lifecycle APIs,
-threading, concrete serialization, persistence/save migration, transaction
-implementation, target headset, and frame-time budgets are intentionally
-unresolved. Later ADRs may map these boundaries to a chosen stack, but changing
-state ownership requires an ADR that supersedes this one.
+Движок и версия, XR runtime/framework, input phases, physics/lifecycle APIs,
+threading, concrete serialization, persistence/save migration, реализация
+transactions, целевой шлем и frame-time budgets намеренно не определены. Будущие
+ADR могут сопоставить эти границы выбранному stack, но изменение владения
+состоянием требует нового ADR, который заменит этот.
