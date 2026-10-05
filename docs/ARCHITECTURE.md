@@ -6,11 +6,20 @@ This repository currently contains only a placeholder `README.md` and the Codex 
 
 ## Engine and version
 
-- Engine: not yet established in repository files.
-- Engine version: not available.
-- VR/XR framework: not available.
+- Выбранный движок: Unity 6.3 LTS `6000.3.25f1`.
+- Обязательная платформа MVP: Meta Quest 3 standalone, Android arm64, IL2CPP,
+  Vulkan, 72 Гц.
+- XR: Unity OpenXR Plugin `1.18.0` поверх системного Horizon OS OpenXR runtime.
+- Ввод: Unity Input System `1.20.1`.
+- Взаимодействия: XR Interaction Toolkit `3.6.1`.
+- Управление XR lifecycle: XR Plug-in Management `4.7.0`.
+- Render pipeline: URP; точную разрешённую Editor-ом версию зафиксирует package
+  manifest при создании проекта.
 
-Do not infer Unity, Unreal Engine, Godot, or any XR package until the corresponding project and dependency files are committed.
+Выбор и ограничения зафиксированы в
+[ADR 0005](adr/0005-vr-technology-stack.md). Сам Unity project и dependency
+manifest ещё не добавлены; до задачи #8 указанные пакеты являются принятым
+baseline, а не установленными файлами репозитория.
 
 ## Repository structure
 
