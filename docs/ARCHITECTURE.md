@@ -23,11 +23,26 @@ baseline, а не установленными файлами репозитор
 
 ## Repository structure
 
+- `.gitignore`: правила исключения локальных кэшей, сборок и файлов IDE.
+- `.gitattributes`: LF для текста и Git LFS для двоичных Unity-ассетов.
 - `.codex/config.toml`: project-level Codex multi-agent settings.
 - `.codex/agents/`: project-scoped specialist agent definitions.
 - `AGENTS.md`: shared development, delegation, Git, review, and merge contract.
 - `docs/ARCHITECTURE.md`: factual project map; expand it as systems are committed.
+- `docs/REPOSITORY_POLICY.md`: правила metadata, LFS, владения файлами и
+  разрешения конфликтов.
+- `scripts/Test-RepositoryPolicy.ps1`: исполняемая проверка `.gitignore` и
+  `.gitattributes` без создания fixture-файлов.
 - `README.md`: current project placeholder.
+
+## Политика репозитория
+
+Правила хранения Unity-проекта зафиксированы в
+[политике репозитория](REPOSITORY_POLICY.md). Авторские файлы `Assets/` вместе с
+`*.meta`, `Packages/` и `ProjectSettings/` должны храниться в Git. Локальные
+кэши и сборки игнорируются, а двоичные ассеты перечисленных форматов проходят
+через Git LFS. Сцены, prefab, общие serialized assets и настройки изменяются
+назначенным владельцем; конфликты разрешаются семантически.
 
 ## Systems and startup flow
 
@@ -52,4 +67,12 @@ No dependency manifest is present.
 
 ## Build, test, and lint
 
-No build, test, lint, or static-analysis commands are defined in the repository. Once the project skeleton is committed, record only verified commands here and keep them synchronized with CI.
+Unity build, PlayMode/EditMode tests, lint и static analysis пока недоступны:
+project skeleton ещё не добавлен. Политика репозитория проверяется командой:
+
+```powershell
+pwsh -NoProfile -File scripts/Test-RepositoryPolicy.ps1
+```
+
+После добавления project skeleton здесь должны быть записаны только проверенные
+команды, синхронизированные с CI.

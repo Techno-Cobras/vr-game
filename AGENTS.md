@@ -110,7 +110,27 @@ Without explicit human direction, never:
 
 ## Engine-specific rules
 
-No engine or gameplay stack is committed yet, so engine-specific rules cannot be asserted safely. When an engine is introduced, update this section and `docs/ARCHITECTURE.md` in the same PR using facts from committed project/version/dependency files. At minimum, document generated directories, serialized/binary asset handling, metadata rules, lifecycle constraints, the XR/input framework, and verified build/test commands for the exact installed version.
+В [ADR 0005](docs/adr/0005-vr-technology-stack.md) выбран Unity 6.3 LTS
+`6000.3.25f1`, OpenXR и Input System для Meta Quest 3. Сам проект и package
+manifest появятся в задаче #8; до этого версии являются принятым baseline, а не
+установленными зависимостями.
+
+- Соблюдайте [политику репозитория](docs/REPOSITORY_POLICY.md) и запускайте
+  `pwsh -NoProfile -File scripts/Test-RepositoryPolicy.ps1` после изменения
+  `.gitignore` или `.gitattributes`.
+- Коммитьте `Assets/**` вместе с `*.meta`, оба файла `Packages/*.json` и
+  `ProjectSettings/**`. Не коммитьте Unity caches, локальные настройки и сборки.
+- После создания проекта настройте через Unity Editor `Visible Meta Files` и
+  `Force Text`; не создавайте эти project settings вручную заранее.
+- Сцены, prefab, общие serialized assets, package manifests, фундаментальные
+  project settings и двоичные LFS-ассеты имеют одного активного владельца.
+- Не разрешайте Unity YAML, metadata или project settings слепым выбором `ours`
+  или `theirs`. Используйте Smart Merge, когда точный Editor будет установлен,
+  затем откройте результат в версии из ADR и проверьте ссылки и Console.
+- Двоичные ассеты перечисленных форматов хранятся через Git LFS. Текстовые
+  `*.unity`, `*.prefab`, `*.asset` и `*.meta` в LFS не переводятся.
+- Точные Unity build/test commands и lifecycle constraints должны быть добавлены
+  одновременно с project skeleton после проверки на установленной версии.
 
 ## Definition of Done
 

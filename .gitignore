@@ -1,0 +1,47 @@
+# Сгенерированные каталоги и кэши Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/UIElementsSchema/
+/ExportedObj/
+
+# Локальные файлы IDE и редакторов
+/.vs/
+/.idea/
+/.vscode/
+/.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.DotSettings.user
+
+# Локальные файлы операционной системы, журналы и аварийные дампы
+.DS_Store
+Thumbs.db
+*.log
+sysinfo.txt
+mono_crash.*
+
+# Сборки и экспортируемые пакеты
+*.apk
+*.aab
+*.unitypackage
+*.unitypackage.meta
