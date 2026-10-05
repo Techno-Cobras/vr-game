@@ -10,6 +10,9 @@
 /[Rr]ecordings/
 /UIElementsSchema/
 /ExportedObj/
+/.gradle/
+/.utmp/
+*.utmp
 
 # Локальные файлы IDE и редакторов
 /.vs/
@@ -29,6 +32,9 @@
 *.svd
 *.pdb
 *.mdb
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
 *.opendb
 *.VC.db
 *.DotSettings.user

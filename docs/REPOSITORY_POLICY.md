@@ -23,9 +23,11 @@
 
 Корневые каталоги `Library/`, `Temp/`, `Obj/`, `Build/`, `Builds/`, `Logs/`,
 `UserSettings/`, `MemoryCaptures/`, `Recordings/` и `UIElementsSchema/` являются
-локальными или воспроизводимыми и игнорируются. Также игнорируются файлы IDE,
-журналы, дампы и готовые Android-сборки. Папки `Assets/`, `Packages/` и
-`ProjectSettings/`, а также `*.meta`, нельзя добавлять в `.gitignore` целиком.
+локальными или воспроизводимыми и игнорируются. То же относится к локальным
+`.gradle/`, `.utmp/` и временным `*.utmp`. Также игнорируются файлы IDE,
+журналы, дампы, metadata генерируемых debug-файлов и готовые Android-сборки.
+Папки `Assets/`, `Packages/` и `ProjectSettings/`, а также `*.meta`, нельзя
+добавлять в `.gitignore` целиком.
 
 ## Сериализация Unity и metadata
 

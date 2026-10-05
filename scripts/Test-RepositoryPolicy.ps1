@@ -59,8 +59,14 @@ try {
         'MemoryCaptures/capture.snap',
         'Recordings/test.mp4',
         'UIElementsSchema/Schema.xsd',
+        '.gradle/caches/test.bin',
+        '.utmp/session/state.bin',
+        'Assets/Scenes/Recovery.utmp',
         '.vs/config.json',
-        'Game.sln'
+        'Game.sln',
+        'Assets/Scripts/Game.pidb.meta',
+        'Assets/Scripts/Game.pdb.meta',
+        'Assets/Scripts/Game.mdb.meta'
     )) {
         Assert-Ignored -Path $path
     }
