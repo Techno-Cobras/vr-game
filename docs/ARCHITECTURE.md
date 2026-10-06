@@ -79,6 +79,18 @@ lookup. Unity data assets строят этот каталог один раз �
 во внешнем adapter-слое; display name, asset name, prefab и scene object никогда
 не используются как identity предмета.
 
+Runtime-инвентарь реализован engine-neutral aggregate в DOMAIN. Один и тот же
+контракт используется для игрока и контейнеров, хранит только `ItemId -> quantity`
+и версию, отклоняет неизвестные items, недостаточное количество и overflow.
+Batch consumption нормализует повторяющиеся IDs и фиксирует все изменения одной
+версией либо не меняет ничего. После успешной фиксации публикуется одно
+`InventoryChanged` с reason, correlation ID и immutable before/after/delta,
+достаточными для UI projection. Event sink использует non-throwing `TryPublish`:
+результат mutation всегда возвращает committed event и флаг доставки, поэтому
+ошибка adapter не провоцирует повтор mutation, а transaction coordinator может
+буферизовать публикацию до общего commit. Физические objects и UI в aggregate
+не входят.
+
 ## Зависимости
 
 | Package | Version |

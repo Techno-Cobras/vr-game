@@ -5,6 +5,7 @@
     "VrGame.Bootstrap",
     "VrGame.Data",
     "VrGame.DataAssets",
+    "VrGame.Domain",
     "Unity.InputSystem",
     "Unity.XR.CoreUtils",
     "Unity.XR.Interaction.Toolkit"
