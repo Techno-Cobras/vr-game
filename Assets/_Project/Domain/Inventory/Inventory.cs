@@ -10,6 +10,7 @@ namespace VrGame.Domain.Inventory
         private readonly ItemCatalog catalog;
         private readonly IInventoryEventSink eventSink;
         private readonly Dictionary<ItemId, int> quantities = new Dictionary<ItemId, int>();
+        private bool isPublishingEvent;
 
         public Inventory(InventoryId id, ItemCatalog catalog, IInventoryEventSink eventSink)
         {
@@ -106,6 +107,8 @@ namespace VrGame.Domain.Inventory
             IEnumerable<InventoryItemQuantity> requirements,
             InventoryChangeContext context)
         {
+            if (isPublishingEvent)
+                return InventoryMutationResult.Reject(InventoryRejection.ReentrantMutation);
             if (!context.IsValid)
                 return InventoryMutationResult.Reject(InventoryRejection.InvalidContext);
             if (requirements == null)
@@ -176,6 +179,11 @@ namespace VrGame.Domain.Inventory
             int quantity,
             InventoryChangeContext context)
         {
+            if (isPublishingEvent)
+                return InventoryMutationResult.Reject(
+                    InventoryRejection.ReentrantMutation,
+                    itemId,
+                    quantity);
             if (!context.IsValid)
                 return InventoryMutationResult.Reject(InventoryRejection.InvalidContext, itemId, quantity);
             if (quantity <= 0)
@@ -204,6 +212,7 @@ namespace VrGame.Domain.Inventory
             Version++;
             var inventoryChanged = new InventoryChanged(Id, Version, kind, context, changes);
             var eventPublished = false;
+            isPublishingEvent = true;
             try
             {
                 eventPublished = eventSink.TryPublish(inventoryChanged);
@@ -212,6 +221,10 @@ namespace VrGame.Domain.Inventory
             {
                 // Mutation уже зафиксирована. Возвращаем событие, чтобы вызывающий код мог
                 // повторить публикацию без повторного выполнения inventory command.
+            }
+            finally
+            {
+                isPublishingEvent = false;
             }
 
             return InventoryMutationResult.Success(inventoryChanged, eventPublished);

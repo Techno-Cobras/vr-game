@@ -89,7 +89,8 @@ Batch consumption нормализует повторяющиеся IDs и фи�
 результат mutation всегда возвращает committed event и флаг доставки, поэтому
 ошибка adapter не провоцирует повтор mutation, а transaction coordinator может
 буферизовать публикацию до общего commit. Физические objects и UI в aggregate
-не входят.
+не входят. Синхронная повторная mutation из event sink типизированно отклоняется,
+чтобы observers всегда видели монотонный порядок aggregate versions.
 
 ## Зависимости
 

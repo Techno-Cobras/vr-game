@@ -209,8 +209,8 @@ namespace VrGame.Tests.EditMode.Inventory
             var sink = new RecordingSink();
             var inventory = CreateInventory(sink);
             var context = Context("inventory.harvest", 42);
-            sink.OnPublish = changed =>
-                Assert.That(inventory.GetQuantity(Basil), Is.EqualTo(changed.Changes.Single().After));
+            var observedQuantity = -1;
+            sink.OnPublish = changed => observedQuantity = inventory.GetQuantity(Basil);
 
             var result = inventory.Add(Basil, 7, context);
             var changed = result.Change;
@@ -222,6 +222,7 @@ namespace VrGame.Tests.EditMode.Inventory
             Assert.That(changed.Changes.Single().Before, Is.Zero);
             Assert.That(changed.Changes.Single().After, Is.EqualTo(7));
             Assert.That(changed.Changes.Single().Delta, Is.EqualTo(7));
+            Assert.That(observedQuantity, Is.EqualTo(changed.Changes.Single().After));
             Assert.Throws<NotSupportedException>(() =>
                 ((System.Collections.IList)changed.Changes).Add(
                     new InventoryQuantityChange(Basil, 7, 8)));
@@ -243,6 +244,26 @@ namespace VrGame.Tests.EditMode.Inventory
             Assert.That(result.Change.Changes.Single().After, Is.EqualTo(2));
             Assert.That(inventory.GetQuantity(Basil), Is.EqualTo(2));
             Assert.That(inventory.Version, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void EventSink_CannotMutateInventoryReentrantly()
+        {
+            var sink = new ReentrantSink();
+            var inventory = new VrGame.Domain.Inventory.Inventory(
+                new InventoryId(Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd")),
+                CreateCatalog(),
+                sink);
+            sink.Inventory = inventory;
+
+            var result = inventory.Add(Basil, 2, Context("inventory.test.add", 1));
+
+            Assert.That(result.Succeeded, Is.True);
+            Assert.That(sink.ReentrantResult.Rejection, Is.EqualTo(InventoryRejection.ReentrantMutation));
+            Assert.That(inventory.GetQuantity(Basil), Is.EqualTo(2));
+            Assert.That(inventory.GetQuantity(Mint), Is.Zero);
+            Assert.That(inventory.Version, Is.EqualTo(1));
+            Assert.That(sink.PublishedVersions, Is.EqualTo(new[] { 1L }));
         }
 
         [Test]
@@ -318,6 +339,22 @@ namespace VrGame.Tests.EditMode.Inventory
         {
             public bool TryPublish(InventoryChanged inventoryChanged) =>
                 throw new InvalidOperationException("Test publication failure.");
+        }
+
+        private sealed class ReentrantSink : IInventoryEventSink
+        {
+            public VrGame.Domain.Inventory.Inventory Inventory { get; set; }
+
+            public InventoryMutationResult ReentrantResult { get; private set; }
+
+            public List<long> PublishedVersions { get; } = new List<long>();
+
+            public bool TryPublish(InventoryChanged inventoryChanged)
+            {
+                PublishedVersions.Add(inventoryChanged.Version);
+                ReentrantResult = Inventory.Add(Mint, 1, Context("inventory.test.reentrant", 99));
+                return true;
+            }
         }
     }
 }

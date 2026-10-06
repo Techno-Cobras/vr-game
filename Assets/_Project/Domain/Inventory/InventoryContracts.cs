@@ -17,7 +17,8 @@ namespace VrGame.Domain.Inventory
         UnknownItem,
         InsufficientStock,
         ArithmeticOverflow,
-        InvalidBatch
+        InvalidBatch,
+        ReentrantMutation
     }
 
     public readonly struct InventoryItemQuantity
