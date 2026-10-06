@@ -1,0 +1,13 @@
+{
+  "name": "VrGame.Tests.PlayMode",
+  "rootNamespace": "VrGame.Tests.PlayMode",
+  "references": [
+    "VrGame.Bootstrap",
+    "Unity.InputSystem",
+    "Unity.XR.CoreUtils",
+    "Unity.XR.Interaction.Toolkit"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "VrGame.Domain",
+  "rootNamespace": "VrGame.Domain",
+  "references": [
+    "VrGame.Data"
+  ],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

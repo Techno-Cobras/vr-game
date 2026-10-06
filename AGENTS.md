@@ -111,17 +111,19 @@ Without explicit human direction, never:
 ## Engine-specific rules
 
 В [ADR 0005](docs/adr/0005-vr-technology-stack.md) выбран Unity 6.3 LTS
-`6000.3.25f1`, OpenXR и Input System для Meta Quest 3. Сам проект и package
-manifest появятся в задаче #8; до этого версии являются принятым baseline, а не
-установленными зависимостями.
+`6000.3.25f1`, OpenXR и Input System для Meta Quest 3. Версии Editor и пакетов
+закреплены в `ProjectSettings/ProjectVersion.txt`, `Packages/manifest.json` и
+`Packages/packages-lock.json`; обновляйте их только отдельным PR с повторным
+smoke, тестами и Android build.
 
 - Соблюдайте [политику репозитория](docs/REPOSITORY_POLICY.md) и запускайте
   `pwsh -NoProfile -File scripts/Test-RepositoryPolicy.ps1` после изменения
   `.gitignore` или `.gitattributes`.
 - Коммитьте `Assets/**` вместе с `*.meta`, оба файла `Packages/*.json` и
   `ProjectSettings/**`. Не коммитьте Unity caches, локальные настройки и сборки.
-- После создания проекта настройте через Unity Editor `Visible Meta Files` и
-  `Force Text`; не создавайте эти project settings вручную заранее.
+- Сохраняйте Unity serialization в режимах `Visible Meta Files` и `Force Text`.
+  Перемещайте/переименовывайте assets через Unity или `AssetDatabase`, сохраняя
+  GUID и ссылки; не пересоздавайте `.meta` существующих assets.
 - Сцены, prefab, общие serialized assets, package manifests, фундаментальные
   project settings и двоичные LFS-ассеты имеют одного активного владельца.
 - Не разрешайте Unity YAML, metadata или project settings слепым выбором `ours`
@@ -129,8 +131,22 @@ manifest появятся в задаче #8; до этого версии яв�
   затем откройте результат в версии из ADR и проверьте ссылки и Console.
 - Двоичные ассеты перечисленных форматов хранятся через Git LFS. Текстовые
   `*.unity`, `*.prefab`, `*.asset` и `*.meta` в LFS не переводятся.
-- Точные Unity build/test commands и lifecycle constraints должны быть добавлены
-  одновременно с project skeleton после проверки на установленной версии.
+- Единственная startup scene — `Assets/_Project/Scenes/Startup.unity`; она владеет
+  одним XR Origin и одним XR Interaction Manager. Additive scenes не создают их
+  дубликаты.
+- Единственный источник bindings — `Assets/_Project/Input/VRControls.inputactions`.
+  Runtime использует Input System `1.20.1` и XRI `3.6.1`; legacy Input Manager не
+  используется.
+- DATA и DOMAIN assemblies имеют `noEngineReferences`. Не добавляйте в них типы
+  `UnityEngine`, XRI, scene, prefab или UI. VRInteraction, Presentation и
+  Bootstrap являются внешними adapters домена.
+- Включайте input и подписки в `OnEnable`, полностью отключайте их в `OnDisable`
+  и блокируйте команды при pause/focus loss. Не полагайтесь на Android quit
+  callback.
+- Обязательные проверки: `scripts/Test-RepositoryPolicy.ps1`,
+  `scripts/Test-UnitySmoke.ps1` и `scripts/Test-UnityProject.ps1`. Изменения
+  packages, settings, startup scene, input, XR или build configuration также
+  требуют `scripts/Build-Android.ps1`.
 
 ## Definition of Done
 

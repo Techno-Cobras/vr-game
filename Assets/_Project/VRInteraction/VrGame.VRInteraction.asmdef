@@ -1,0 +1,9 @@
+{
+  "name": "VrGame.VRInteraction",
+  "rootNamespace": "VrGame.VRInteraction",
+  "references": [
+    "VrGame.Domain",
+    "Unity.XR.Interaction.Toolkit"
+  ],
+  "autoReferenced": true
+}

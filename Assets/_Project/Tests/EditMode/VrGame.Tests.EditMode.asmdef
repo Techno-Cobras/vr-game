@@ -1,0 +1,16 @@
+{
+  "name": "VrGame.Tests.EditMode",
+  "rootNamespace": "VrGame.Tests.EditMode",
+  "references": [
+    "VrGame.Bootstrap",
+    "Unity.InputSystem",
+    "Unity.XR.CoreUtils",
+    "Unity.XR.Interaction.Toolkit"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
