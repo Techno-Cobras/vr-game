@@ -1,0 +1,8 @@
+{
+  "name": "VrGame.DataAssets",
+  "rootNamespace": "VrGame.DataAssets",
+  "references": [
+    "VrGame.Data"
+  ],
+  "autoReferenced": true
+}

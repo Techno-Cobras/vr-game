@@ -3,6 +3,8 @@
   "rootNamespace": "VrGame.Tests.EditMode",
   "references": [
     "VrGame.Bootstrap",
+    "VrGame.Data",
+    "VrGame.DataAssets",
     "Unity.InputSystem",
     "Unity.XR.CoreUtils",
     "Unity.XR.Interaction.Toolkit"

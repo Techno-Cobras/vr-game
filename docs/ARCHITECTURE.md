@@ -25,6 +25,8 @@ EditMode/PlayMode tests и batchmode-команды smoke/build.
 
 - `Assets/_Project/Bootstrap/`: composition root и lifecycle gate для Input Actions.
 - `Assets/_Project/Data/`: engine-neutral DATA assembly без ссылок на UnityEngine.
+- `Assets/_Project/DataAssets/`: Unity ScriptableObject adapters для преобразования
+  авторских assets в неизменяемые DATA definitions и разрешения prefab representations.
 - `Assets/_Project/Domain/`: engine-neutral DOMAIN assembly, зависящая только от DATA.
 - `Assets/_Project/Input/VRControls.inputactions`: единственный versioned источник bindings.
 - `Assets/_Project/Scenes/Startup.unity`: единственная сцена в Build Settings.
@@ -69,6 +71,13 @@ queries/events. Внешние слои могут вызывать доменн
 `noEngineReferences`, а VR INTERACTION, PRESENTATION и Bootstrap зависят от
 домена только в направлении внутрь. У каждого изменяемого значения должен быть
 один владелец; scene objects и presenters не являются хранилищами gameplay state.
+
+Item definitions используют стабильные lowercase ASCII `ItemId`, отдельные
+representation keys и валидированные stack rules. `ItemCatalog` копирует и
+сортирует definitions по ID, отклоняет дубли и выполняет ordinal case-sensitive
+lookup. Unity data assets строят этот каталог один раз и держат prefab resolver
+во внешнем adapter-слое; display name, asset name, prefab и scene object никогда
+не используются как identity предмета.
 
 ## Зависимости
 
