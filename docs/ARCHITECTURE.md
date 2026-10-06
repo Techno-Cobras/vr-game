@@ -1,78 +1,105 @@
-# Project Architecture
+# Архитектура проекта
 
-## Current state
+## Текущее состояние
 
-This repository currently contains only a placeholder `README.md` and the Codex collaboration configuration. No game project, source code, scenes/maps, assets, dependency manifests, build scripts, tests, or continuous-integration workflows are committed yet.
+Репозиторий содержит запускаемый Unity VR project skeleton: зафиксированные
+зависимости, Android/OpenXR/URP settings, одну стартовую сцену, XRI Starter
+Assets, единый Input Action Asset, базовый grab, world-space UI,
+EditMode/PlayMode tests и batchmode-команды smoke/build.
 
-## Engine and version
+## Движок и целевая платформа
 
-- Выбранный движок: Unity 6.3 LTS `6000.3.25f1`.
-- Обязательная платформа MVP: Meta Quest 3 standalone, Android arm64, IL2CPP,
-  Vulkan, 72 Гц.
-- XR: Unity OpenXR Plugin `1.18.0` поверх системного Horizon OS OpenXR runtime.
-- Ввод: Unity Input System `1.20.1`.
-- Взаимодействия: XR Interaction Toolkit `3.6.1`.
-- Управление XR lifecycle: XR Plug-in Management `4.7.0`.
-- Render pipeline: URP; точную разрешённую Editor-ом версию зафиксирует package
-  manifest при создании проекта.
+- Unity 6.3 LTS `6000.3.25f1`.
+- Meta Quest 3 standalone: Android arm64, IL2CPP, Vulkan, 72 Гц.
+- OpenXR Plugin `1.18.0` поверх Horizon OS OpenXR runtime.
+- Input System `1.20.1`.
+- XR Interaction Toolkit `3.6.1`.
+- XR Plug-in Management `4.7.0`.
+- URP `17.3.0`.
 
 Выбор и ограничения зафиксированы в
-[ADR 0005](adr/0005-vr-technology-stack.md). Сам Unity project и dependency
-manifest ещё не добавлены; до задачи #8 указанные пакеты являются принятым
-baseline, а не установленными файлами репозитория.
+[ADR 0005](adr/0005-vr-technology-stack.md). Точные версии находятся в
+`Packages/manifest.json` и `Packages/packages-lock.json`.
 
-## Repository structure
+## Структура репозитория
 
-- `.gitignore`: правила исключения локальных кэшей, сборок и файлов IDE.
-- `.gitattributes`: LF для текста и Git LFS для двоичных Unity-ассетов.
-- `.codex/config.toml`: project-level Codex multi-agent settings.
-- `.codex/agents/`: project-scoped specialist agent definitions.
-- `AGENTS.md`: shared development, delegation, Git, review, and merge contract.
-- `docs/ARCHITECTURE.md`: factual project map; expand it as systems are committed.
-- `docs/REPOSITORY_POLICY.md`: правила metadata, LFS, владения файлами и
-  разрешения конфликтов.
-- `scripts/Test-RepositoryPolicy.ps1`: исполняемая проверка `.gitignore` и
-  `.gitattributes` без создания fixture-файлов.
-- `README.md`: current project placeholder.
+- `Assets/_Project/Bootstrap/`: composition root и lifecycle gate для Input Actions.
+- `Assets/_Project/Data/`: engine-neutral DATA assembly без ссылок на UnityEngine.
+- `Assets/_Project/Domain/`: engine-neutral DOMAIN assembly, зависящая только от DATA.
+- `Assets/_Project/Input/VRControls.inputactions`: единственный versioned источник bindings.
+- `Assets/_Project/Scenes/Startup.unity`: единственная сцена в Build Settings.
+- `Assets/_Project/VRInteraction/`: XRI adapters; gameplay state здесь не хранится.
+- `Assets/_Project/Presentation/`: UI presenters; gameplay state здесь не хранится.
+- `Assets/_Project/Tests/`: EditMode и PlayMode tests.
+- `Assets/Samples/XR Interaction Toolkit/3.6.1/Starter Assets/`: импортированный
+  XRI baseline для XR Origin и controller-first interaction.
+- `Assets/XR/`: versioned XR Management/OpenXR settings и Android loader.
+- `Packages/`: зафиксированные Unity package зависимости.
+- `ProjectSettings/`: versioned настройки Unity, Android, URP, input и build scene.
+- `docs/adr/`: принятые архитектурные решения.
+- `docs/REPOSITORY_POLICY.md`: правила metadata, LFS и serialized assets.
+- `scripts/`: воспроизводимые проверки и Android build.
 
-## Политика репозитория
+Локальные `Library/`, `Temp/`, `Obj/`, `Logs/`, `UserSettings/`, `Build/` и
+`Builds/` игнорируются. Авторские assets всегда коммитятся вместе с `.meta`.
 
-Правила хранения Unity-проекта зафиксированы в
-[политике репозитория](REPOSITORY_POLICY.md). Авторские файлы `Assets/` вместе с
-`*.meta`, `Packages/` и `ProjectSettings/` должны храниться в Git. Локальные
-кэши и сборки игнорируются, а двоичные ассеты перечисленных форматов проходят
-через Git LFS. Сцены, prefab, общие serialized assets и настройки изменяются
-назначенным владельцем; конфликты разрешаются семантически.
+## Стартовый поток и сцена
 
-## Systems and startup flow
+`Startup.unity` содержит ровно один XR Origin и один XR Interaction Manager.
+XRI prefab создаёт tracked camera, left/right controller objects, direct/ray
+interactors и locomotion providers. `VRControls.inputactions` подключён через
+Input Action Manager и `VrBootstrap`; последний включает actions в `OnEnable`,
+отключает в `OnDisable`/pause/focus loss и не владеет игровым состоянием.
 
-No game systems, scenes/maps, startup flow, player architecture, interaction system, input configuration, or gameplay state implementation are present yet.
+В сцене также находятся пол с collider, Rigidbody + XR Grab Interactable,
+Directional Light и интерактивный world-space Canvas через XR UI Input Module.
+OpenXR loader автоматически инициализируется для Android; включены Meta Quest
+Support и Oculus Touch Controller Profile.
 
-Независимые от движка границы доменов MVP определены в
+## Границы систем
+
+Независимые от движка границы MVP определены в
 [ADR 0007](adr/0007-mvp-domain-boundaries.md). DATA предоставляет неизменяемые
-валидированные definitions; DOMAIN / GAME LOGIC владеет всем авторитетным
-runtime-состоянием; VR INTERACTION и UI / PRESENTATION преобразуют намерения и
-наблюдают queries/events. Внешние слои могут вызывать публичные application
-contracts домена, но Domain никогда не зависит от типов движка, VR, scene или UI.
+валидированные definitions; DOMAIN / GAME LOGIC владеет авторитетным runtime
+state; VR INTERACTION и UI / PRESENTATION преобразуют намерения и наблюдают
+queries/events. Внешние слои могут вызывать доменные contracts, но Domain не
+зависит от движка, VR, scene или UI.
 
-У каждого изменяемого значения есть один владелец. Cross-system изменения
-выполняются узкими именованными атомарными handlers; физические объекты и
-presenters никогда не становятся альтернативными хранилищами. Конкретное
-сопоставление с движком остаётся неопределённым до добавления движка и project
-skeleton.
+Границы закреплены assembly definitions: DATA и DOMAIN используют
+`noEngineReferences`, а VR INTERACTION, PRESENTATION и Bootstrap зависят от
+домена только в направлении внутрь. У каждого изменяемого значения должен быть
+один владелец; scene objects и presenters не являются хранилищами gameplay state.
 
-## Dependencies
+## Зависимости
 
-No dependency manifest is present.
+| Package | Version |
+| --- | --- |
+| Input System | `1.20.1` |
+| Universal Render Pipeline | `17.3.0` |
+| XR Interaction Toolkit | `3.6.1` |
+| XR Plug-in Management | `4.7.0` |
+| OpenXR Plugin | `1.18.0` |
+| Unity Test Framework | `1.6.0` |
 
-## Build, test, and lint
+## Сборка и проверки
 
-Unity build, PlayMode/EditMode tests, lint и static analysis пока недоступны:
-project skeleton ещё не добавлен. Политика репозитория проверяется командой:
+Команды выполняются из корня репозитория в PowerShell:
 
 ```powershell
 pwsh -NoProfile -File scripts/Test-RepositoryPolicy.ps1
+pwsh -NoProfile -File scripts/Test-UnitySmoke.ps1
+pwsh -NoProfile -File scripts/Test-UnityProject.ps1
+pwsh -NoProfile -File scripts/Build-Android.ps1
 ```
 
-После добавления project skeleton здесь должны быть записаны только проверенные
-команды, синхронизированные с CI.
+`Test-UnitySmoke.ps1` проверяет сцену, XR rig, grab, UI, bindings и Build
+Settings. `Test-UnityProject.ps1` запускает EditMode и PlayMode tests и пишет
+результаты в игнорируемый `Logs/TestResults/`. `Build-Android.ps1` создаёт
+игнорируемый `Builds/Android/vr-game.apk` для arm64/IL2CPP/Vulkan.
+
+Runner определяет Editor требуемой версии через конфигурацию Unity Hub и
+стандартные каталоги. Для CI и нестандартных установок поддерживаются параметр
+`-UnityEditor` и переменная окружения `UNITY_EDITOR`.
+
+Проверенный workflow и ограничения зафиксированы в
+[отчёте задачи #8](smoke/vr8-project-skeleton.md).
