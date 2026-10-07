@@ -3,6 +3,7 @@
   "rootNamespace": "VrGame.Tests.PlayMode",
   "references": [
     "VrGame.Bootstrap",
+    "VrGame.Presentation",
     "Unity.InputSystem",
     "Unity.XR.CoreUtils",
     "Unity.XR.Interaction.Toolkit"
