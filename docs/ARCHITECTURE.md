@@ -92,6 +92,14 @@ Batch consumption нормализует повторяющиеся IDs и фи�
 не входят. Синхронная повторная mutation из event sink типизированно отклоняется,
 чтобы observers всегда видели монотонный порядок aggregate versions.
 
+Централизованный `EconomyService` в DOMAIN единолично владеет неотрицательным
+целочисленным балансом. `Credit` и `TrySpend` используют reason, `CommandId` и
+`CorrelationId`, защищены от overflow, overdraft и повторного входа. Завершённые
+успешные и отклонённые команды кэшируются до конца сессии: повтор возвращает
+прежний результат без второй mutation или события, а конфликтующий payload
+отклоняется. Каждая успешная команда добавляет immutable `BalanceChanged` в
+read-only ledger и использует тот же безопасный `TryPublish` contract.
+
 ## Зависимости
 
 | Package | Version |
