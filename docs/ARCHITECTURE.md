@@ -99,6 +99,9 @@ Batch consumption нормализует повторяющиеся IDs и фи�
 прежний результат без второй mutation или события, а конфликтующий payload
 отклоняется. Каждая успешная команда добавляет immutable `BalanceChanged` в
 read-only ledger и использует тот же безопасный `TryPublish` contract.
+Частый economy snapshot содержит только balance/version; копирование ledger
+выполняется лишь отдельным явным audit-запросом, чтобы не создавать растущие
+per-frame allocations в VR presenters.
 
 ## Зависимости
 

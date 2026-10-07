@@ -16,7 +16,7 @@ namespace VrGame.Tests.EditMode.Economy
 
             Assert.That(service.Balance, Is.EqualTo(125));
             Assert.That(service.Version, Is.Zero);
-            Assert.That(service.GetSnapshot().Ledger, Is.Empty);
+            Assert.That(service.GetLedgerSnapshot(), Is.Empty);
             Assert.That(balanceProperty.SetMethod, Is.Not.Null);
             Assert.That(balanceProperty.SetMethod.IsPublic, Is.False);
             Assert.Throws<ArgumentOutOfRangeException>(() => new EconomyService(-1, new RecordingSink()));
@@ -134,7 +134,7 @@ namespace VrGame.Tests.EditMode.Economy
             Assert.That(service.Balance, Is.EqualTo(10));
             Assert.That(service.Version, Is.EqualTo(1));
             Assert.That(sink.Events, Has.Count.EqualTo(1));
-            Assert.That(service.GetSnapshot().Ledger, Has.Count.EqualTo(1));
+            Assert.That(service.GetLedgerSnapshot(), Has.Count.EqualTo(1));
         }
 
         [Test]
@@ -209,14 +209,15 @@ namespace VrGame.Tests.EditMode.Economy
             var service = new EconomyService(0, new RecordingSink());
             service.Credit(2, Context("economy.reward", 1));
             var snapshot = service.GetSnapshot();
+            var ledgerSnapshot = service.GetLedgerSnapshot();
             service.Credit(3, Context("economy.reward", 2));
 
             Assert.That(snapshot.Balance, Is.EqualTo(2));
             Assert.That(snapshot.Version, Is.EqualTo(1));
-            Assert.That(snapshot.Ledger, Has.Count.EqualTo(1));
+            Assert.That(ledgerSnapshot, Has.Count.EqualTo(1));
             Assert.Throws<NotSupportedException>(() =>
-                ((System.Collections.IList)snapshot.Ledger).Add(snapshot.Ledger[0]));
-            Assert.That(service.GetSnapshot().Ledger, Has.Count.EqualTo(2));
+                ((System.Collections.IList)ledgerSnapshot).Add(ledgerSnapshot[0]));
+            Assert.That(service.GetLedgerSnapshot(), Has.Count.EqualTo(2));
         }
 
         private static EconomyChangeContext Context(string reason, int seed)
@@ -230,7 +231,7 @@ namespace VrGame.Tests.EditMode.Economy
         {
             Assert.That(service.Balance, Is.EqualTo(expectedBalance));
             Assert.That(service.Version, Is.Zero);
-            Assert.That(service.GetSnapshot().Ledger, Is.Empty);
+            Assert.That(service.GetLedgerSnapshot(), Is.Empty);
             Assert.That(sink.Events, Is.Empty);
         }
 

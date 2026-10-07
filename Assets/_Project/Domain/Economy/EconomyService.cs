@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace VrGame.Domain.Economy
 {
@@ -24,7 +26,10 @@ namespace VrGame.Domain.Economy
 
         public long Version { get; private set; }
 
-        public EconomySnapshot GetSnapshot() => new EconomySnapshot(Balance, Version, ledger);
+        public EconomySnapshot GetSnapshot() => new EconomySnapshot(Balance, Version);
+
+        public IReadOnlyList<BalanceChanged> GetLedgerSnapshot() =>
+            new ReadOnlyCollection<BalanceChanged>(ledger.ToList());
 
         public EconomyMutationResult Credit(int amount, EconomyChangeContext context) =>
             Execute(EconomyMutationKind.Credit, amount, context);
