@@ -103,6 +103,16 @@ read-only ledger и использует тот же безопасный `TryPu
 выполняется лишь отдельным явным audit-запросом, чтобы не создавать растущие
 per-frame allocations в VR presenters.
 
+World-space indicators реализованы в PRESENTATION как event-driven projections.
+Presenter наблюдает `IIndicatorProjectionSource`, восстанавливает актуальный
+snapshot при включении, принимает state events и использует стабильный
+presentation key, prefab catalog и внутренний pool. Низкоуровневые операции
+`Show`, `Rebind`, `Reconcile` и `Hide` оставлены для узких system adapters. Явный `IndicatorTarget`
+сообщает о disable/destroy без scene searches, а cached viewer используется
+только для billboard активных views. Water, ready-to-harvest и delivery имеют
+разные контрастные prefabs; gameplay state и domain event bus presenter не
+создаёт — plant/delivery adapters передают ему восстановимую projection state.
+
 ## Зависимости
 
 | Package | Version |
