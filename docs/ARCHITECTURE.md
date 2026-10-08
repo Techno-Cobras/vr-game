@@ -79,6 +79,14 @@ lookup. Unity data assets строят этот каталог один раз �
 во внешнем adapter-слое; display name, asset name, prefab и scene object никогда
 не используются как identity предмета.
 
+Plant definitions в DATA используют стабильные `PlantTypeId`, длительность
+роста, seed/harvest `ItemId` и строго возрастающие нормализованные стадии с
+отдельными representation keys. `PlantCatalog` проверяет принадлежность items
+runtime-каталогу и их категории, копирует definitions и выдаёт их в
+детерминированном порядке. Unity data assets содержат только авторские данные;
+`RuntimePlantCatalog` отдельно разрешает representation key в prefab и не хранит
+прогресс роста.
+
 Runtime-инвентарь реализован engine-neutral aggregate в DOMAIN. Один и тот же
 контракт используется для игрока и контейнеров, хранит только `ItemId -> quantity`
 и версию, отклоняет неизвестные items, недостаточное количество и overflow.

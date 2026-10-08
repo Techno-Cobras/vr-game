@@ -26,6 +26,8 @@ namespace VrGame.DataAssets
 
         public ItemRepresentationAsset Representation => representation;
 
+        public ItemId GetId() => new ItemId(id);
+
         public ItemDefinition ToDefinition()
         {
             if (representation == null)
@@ -34,7 +36,7 @@ namespace VrGame.DataAssets
                     $"У item asset '{name}' отсутствует representation asset.");
 
             return new ItemDefinition(
-                new ItemId(id),
+                GetId(),
                 displayName,
                 category,
                 representation.GetKey(),
