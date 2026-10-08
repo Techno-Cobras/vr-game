@@ -111,6 +111,21 @@ read-only ledger и использует тот же безопасный `TryPu
 выполняется лишь отдельным явным audit-запросом, чтобы не создавать растущие
 per-frame allocations в VR presenters.
 
+`PlantingSlot` в DOMAIN владеет полным runtime-состоянием одной грядки и не
+изменяет инвентарь. Aggregate проводит растение через состояния `Empty`,
+`Growing`, `NeedsWater` и `ReadyToHarvest`; успешный сбор атомарно возвращает
+грядку в исходное состояние. Прогресс задаётся строго возрастающим абсолютным
+нормализованным значением, а конечный modifier удобрения можно применить один
+раз за цикл. Каждая успешная команда повышает версию ровно на единицу и
+публикует immutable `PlantingSlotChanged` с before/after snapshot. Команды
+идемпотентны в пределах сессии по паре kind/CommandId: совпадающий повтор
+возвращает исходный результат, а изменившиеся payload, reason или correlation ID
+дают типизированный конфликт без изменения состояния. Частый progress не
+накапливается в session replay cache: он передаётся как абсолютное значение с
+ожидаемой версией slot, поэтому повторный или устаревший tick является no-op.
+Будущий timer из задачи VR-16 обязан отправлять только значимые progress
+checkpoints, а не создавать domain events каждый render frame.
+
 World-space indicators реализованы в PRESENTATION как event-driven projections.
 Presenter наблюдает `IIndicatorProjectionSource`, восстанавливает актуальный
 snapshot при включении, принимает state events и использует стабильный
