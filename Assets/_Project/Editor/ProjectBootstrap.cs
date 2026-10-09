@@ -186,6 +186,7 @@ namespace VrGame.Editor
 
             CreateEnvironment();
             CreateWorldSpaceUi();
+            SeedStorageAssetBuilder.BuildAndWire(scene);
 
             if (UnityEngine.Object.FindObjectsByType<XROrigin>(FindObjectsSortMode.None).Length != 1)
                 throw new InvalidOperationException("Стартовая сцена должна содержать ровно один XR Origin.");

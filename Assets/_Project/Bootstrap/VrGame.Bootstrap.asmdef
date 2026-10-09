@@ -2,10 +2,13 @@
   "name": "VrGame.Bootstrap",
   "rootNamespace": "VrGame.Bootstrap",
   "references": [
+    "VrGame.Data",
+    "VrGame.DataAssets",
     "VrGame.Domain",
     "VrGame.Presentation",
     "VrGame.VRInteraction",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.XR.Interaction.Toolkit"
   ],
   "autoReferenced": true
 }

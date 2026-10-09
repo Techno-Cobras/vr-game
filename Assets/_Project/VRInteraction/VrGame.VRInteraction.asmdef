@@ -2,6 +2,8 @@
   "name": "VrGame.VRInteraction",
   "rootNamespace": "VrGame.VRInteraction",
   "references": [
+    "VrGame.Data",
+    "VrGame.DataAssets",
     "VrGame.Domain",
     "Unity.XR.Interaction.Toolkit"
   ],

@@ -18,6 +18,7 @@ namespace VrGame.Domain.Inventory
             Version = version;
             Kind = kind;
             Reason = context.Reason;
+            CommandId = context.CommandId;
             CorrelationId = context.CorrelationId;
             Changes = new ReadOnlyCollection<InventoryQuantityChange>(changes.ToList());
         }
@@ -29,6 +30,8 @@ namespace VrGame.Domain.Inventory
         public InventoryMutationKind Kind { get; }
 
         public string Reason { get; }
+
+        public Guid CommandId { get; }
 
         public Guid CorrelationId { get; }
 
