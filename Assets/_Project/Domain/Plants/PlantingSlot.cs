@@ -4,7 +4,7 @@ using VrGame.Data.Plants;
 
 namespace VrGame.Domain.Plants
 {
-    public sealed class PlantingSlot
+    public sealed partial class PlantingSlot
     {
         private readonly PlantCatalog catalog;
         private readonly IPlantingSlotEventSink eventSink;

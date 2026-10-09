@@ -5,7 +5,7 @@ using VrGame.Data.Items;
 
 namespace VrGame.Domain.Inventory
 {
-    public sealed class Inventory
+    public sealed partial class Inventory
     {
         private readonly ItemCatalog catalog;
         private readonly IInventoryEventSink eventSink;

@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9dc764a8fa408d468a7dd73a595b00c, type: 3}
+  m_Name: MintSeedRepresentation
+  m_EditorClassIdentifier: VrGame.DataAssets::VrGame.DataAssets.ItemRepresentationAsset
+  key: representation.seed.mint
+  prefab: {fileID: 811787411783319275, guid: 54e13fbc07443fa4a85c44e8e5903578, type: 3}

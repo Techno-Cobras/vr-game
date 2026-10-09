@@ -2,6 +2,7 @@
   "name": "VrGame.Presentation",
   "rootNamespace": "VrGame.Presentation",
   "references": [
+    "VrGame.Data",
     "VrGame.Domain",
     "Unity.UGUI"
   ],

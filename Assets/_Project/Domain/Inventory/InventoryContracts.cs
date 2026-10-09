@@ -6,7 +6,9 @@ namespace VrGame.Domain.Inventory
     {
         Add = 1,
         Remove = 2,
-        ConsumeBatch = 3
+        ConsumeBatch = 3,
+        TransferOut = 4,
+        TransferIn = 5
     }
 
     public enum InventoryRejection
