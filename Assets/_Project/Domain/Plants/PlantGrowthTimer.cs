@@ -9,6 +9,8 @@ namespace VrGame.Domain.Plants
         private readonly PlantCatalog catalog;
         private readonly IPlantGrowthTimeSource timeSource;
         private bool isRunning;
+        private long observedSlotVersion;
+        private PlantingSlotState observedSlotState;
         private double baselineSeconds;
 
         public PlantGrowthTimer(
@@ -29,6 +31,7 @@ namespace VrGame.Domain.Plants
                 return;
 
             baselineSeconds = ReadTime();
+            Observe(slot.GetSnapshot());
             isRunning = true;
         }
 
@@ -53,6 +56,11 @@ namespace VrGame.Domain.Plants
                 return null;
 
             var snapshot = slot.GetSnapshot();
+            if (snapshot.Version != observedSlotVersion || snapshot.State != observedSlotState)
+            {
+                Observe(snapshot);
+                return null;
+            }
             if (snapshot.State != PlantingSlotState.Growing || !snapshot.PlantTypeId.HasValue)
                 return null;
 
@@ -64,13 +72,22 @@ namespace VrGame.Domain.Plants
             if (normalizedTarget <= snapshot.NormalizedProgress)
                 return null;
 
-            return slot.AdvanceGrowth(
+            var result = slot.AdvanceGrowth(
                 (float)elapsedTarget,
                 snapshot.Version,
                 new PlantingSlotChangeContext(
                     "ход таймера роста",
                     Guid.NewGuid(),
                     Guid.NewGuid()));
+            if (result.Succeeded)
+                Observe(result.Change.After);
+            return result;
+        }
+
+        private void Observe(PlantingSlotSnapshot snapshot)
+        {
+            observedSlotVersion = snapshot.Version;
+            observedSlotState = snapshot.State;
         }
 
         private double ReadTime()

@@ -30,7 +30,9 @@ namespace VrGame.Domain.Plants
             if (Version == long.MaxValue)
                 return PlantingSlotRejection.ArithmeticOverflow;
 
-            prepared = new PreparedPlanting(plantType, Version, context);
+            var definition = catalog.GetRequired(plantType);
+            var waterThreshold = definition.WaterRequestRange.Select(randomSource.NextUnit());
+            prepared = new PreparedPlanting(plantType, waterThreshold, Version, context);
             return PlantingSlotRejection.None;
         }
 
@@ -40,7 +42,10 @@ namespace VrGame.Domain.Plants
                 throw new InvalidOperationException("Подготовленная посадка устарела.");
 
             var before = GetSnapshot();
-            Apply(PlantingSlotMutationKind.Plant, CommandPayload.ForPlant(prepared.PlantTypeId));
+            Apply(
+                PlantingSlotMutationKind.Plant,
+                CommandPayload.ForPlant(prepared.PlantTypeId),
+                prepared.WaterRequestThreshold);
             Version++;
             return new PlantingSlotChanged(
                 PlantingSlotMutationKind.Plant,
@@ -65,15 +70,18 @@ namespace VrGame.Domain.Plants
         {
             public PreparedPlanting(
                 PlantTypeId plantTypeId,
+                float waterRequestThreshold,
                 long expectedVersion,
                 PlantingSlotChangeContext context)
             {
                 PlantTypeId = plantTypeId;
+                WaterRequestThreshold = waterRequestThreshold;
                 ExpectedVersion = expectedVersion;
                 Context = context;
             }
 
             public PlantTypeId PlantTypeId { get; }
+            public float WaterRequestThreshold { get; }
             public long ExpectedVersion { get; }
             public PlantingSlotChangeContext Context { get; }
         }

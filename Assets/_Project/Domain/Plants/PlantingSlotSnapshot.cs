@@ -11,7 +11,10 @@ namespace VrGame.Domain.Plants
             PlantTypeId? plantTypeId,
             float elapsedGrowthSeconds,
             float normalizedProgress,
-            PlantGrowthModifier growthModifier)
+            PlantGrowthModifier growthModifier,
+            float? waterRequestThreshold,
+            bool waterRequestOccurred,
+            bool waterRequestCompleted)
         {
             SlotId = slotId;
             Version = version;
@@ -20,6 +23,9 @@ namespace VrGame.Domain.Plants
             ElapsedGrowthSeconds = elapsedGrowthSeconds;
             NormalizedProgress = normalizedProgress;
             GrowthModifier = growthModifier;
+            WaterRequestThreshold = waterRequestThreshold;
+            WaterRequestOccurred = waterRequestOccurred;
+            WaterRequestCompleted = waterRequestCompleted;
         }
 
         public PlantingSlotId SlotId { get; }
@@ -29,5 +35,8 @@ namespace VrGame.Domain.Plants
         public float ElapsedGrowthSeconds { get; }
         public float NormalizedProgress { get; }
         public PlantGrowthModifier GrowthModifier { get; }
+        public float? WaterRequestThreshold { get; }
+        public bool WaterRequestOccurred { get; }
+        public bool WaterRequestCompleted { get; }
     }
 }

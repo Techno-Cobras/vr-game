@@ -28,6 +28,9 @@ namespace VrGame.Tests.EditMode.Plants
             Assert.That(snapshot.GrowthModifier, Is.EqualTo(PlantGrowthModifier.None));
             Assert.That(snapshot.GrowthModifier.IsApplied, Is.False);
             Assert.That(snapshot.GrowthModifier.EffectiveMultiplier, Is.EqualTo(1f));
+            Assert.That(snapshot.WaterRequestThreshold, Is.Null);
+            Assert.That(snapshot.WaterRequestOccurred, Is.False);
+            Assert.That(snapshot.WaterRequestCompleted, Is.False);
         }
 
         [Test]
@@ -37,7 +40,7 @@ namespace VrGame.Tests.EditMode.Plants
 
             Assert.That(slot.Plant(Basil, Context("посадка")).Succeeded, Is.True);
             Assert.That(slot.AdvanceProgress(.25f, slot.Version, Context("рост")).Succeeded, Is.True);
-            Assert.That(slot.RequestWater(Context("запрос воды")).Succeeded, Is.True);
+            Assert.That(slot.AdvanceProgress(.75f, slot.Version, Context("достижение порога воды")).Succeeded, Is.True);
             Assert.That(slot.ApplyFertilizer(new PlantGrowthModifier(1.5f), Context("удобрение")).Succeeded, Is.True);
             Assert.That(slot.Water(Context("полив")).Succeeded, Is.True);
             Assert.That(slot.AdvanceProgress(1f, slot.Version, Context("созревание")).Succeeded, Is.True);
@@ -57,6 +60,7 @@ namespace VrGame.Tests.EditMode.Plants
             Assert.That(empty.PlantTypeId, Is.Null);
             Assert.That(empty.NormalizedProgress, Is.Zero);
             Assert.That(empty.GrowthModifier, Is.EqualTo(PlantGrowthModifier.None));
+            Assert.That(empty.WaterRequestThreshold, Is.Null);
             Assert.That(sink.Events, Has.Count.EqualTo(7));
             Assert.That(harvest.Change.Before.State, Is.EqualTo(PlantingSlotState.ReadyToHarvest));
             Assert.That(harvest.Change.After.State, Is.EqualTo(PlantingSlotState.Empty));
@@ -80,7 +84,6 @@ namespace VrGame.Tests.EditMode.Plants
         {
             var empty = CreateSlot(out _);
             AssertRejectedNoOp(empty, () => empty.AdvanceProgress(.1f, empty.Version, Context("рост пустого")), PlantingSlotRejection.NotGrowing);
-            AssertRejectedNoOp(empty, () => empty.RequestWater(Context("вода пустому")), PlantingSlotRejection.NotGrowing);
             AssertRejectedNoOp(empty, () => empty.Water(Context("полив пустого")), PlantingSlotRejection.WaterNotNeeded);
             AssertRejectedNoOp(empty, () => empty.ApplyFertilizer(new PlantGrowthModifier(2f), Context("удобрение пустого")), PlantingSlotRejection.NotGrowing);
             AssertRejectedNoOp(empty, () => empty.Harvest(Context("сбор пустого")), PlantingSlotRejection.NotReady);
@@ -92,14 +95,12 @@ namespace VrGame.Tests.EditMode.Plants
 
             var needsWater = CreateSlot(out _);
             needsWater.Plant(Basil, Context("посадка"));
-            needsWater.RequestWater(Context("запрос воды"));
-            AssertRejectedNoOp(needsWater, () => needsWater.AdvanceProgress(.2f, needsWater.Version, Context("рост без воды")), PlantingSlotRejection.NotGrowing);
-            AssertRejectedNoOp(needsWater, () => needsWater.RequestWater(Context("повторный запрос")), PlantingSlotRejection.AlreadyNeedsWater);
+            needsWater.AdvanceProgress(.75f, needsWater.Version, Context("достижение порога воды"));
+            AssertRejectedNoOp(needsWater, () => needsWater.AdvanceProgress(.8f, needsWater.Version, Context("рост без воды")), PlantingSlotRejection.NotGrowing);
             AssertRejectedNoOp(needsWater, () => needsWater.Harvest(Context("ранний сбор")), PlantingSlotRejection.NotReady);
 
             var ready = CreateReadySlot();
             AssertRejectedNoOp(ready, () => ready.AdvanceProgress(1f, ready.Version, Context("рост готового")), PlantingSlotRejection.NotGrowing);
-            AssertRejectedNoOp(ready, () => ready.RequestWater(Context("вода готовому")), PlantingSlotRejection.NotGrowing);
             AssertRejectedNoOp(ready, () => ready.Water(Context("полив готового")), PlantingSlotRejection.WaterNotNeeded);
             AssertRejectedNoOp(ready, () => ready.ApplyFertilizer(new PlantGrowthModifier(2f), Context("удобрение готового")), PlantingSlotRejection.NotGrowing);
         }
@@ -135,10 +136,10 @@ namespace VrGame.Tests.EditMode.Plants
         {
             var slot = CreateSlot(out _);
             slot.Plant(Basil, Context("посадка"));
-            slot.AdvanceProgress(.5f, slot.Version, Context("рост"));
+            slot.AdvanceProgress(.25f, slot.Version, Context("рост"));
 
-            AssertRejectedNoOp(slot, () => slot.AdvanceProgress(.5f, slot.Version, Context("равный прогресс")), PlantingSlotRejection.ProgressRegressionOrNoProgress);
-            AssertRejectedNoOp(slot, () => slot.AdvanceProgress(.4f, slot.Version, Context("регресс")), PlantingSlotRejection.ProgressRegressionOrNoProgress);
+            AssertRejectedNoOp(slot, () => slot.AdvanceProgress(.25f, slot.Version, Context("равный прогресс")), PlantingSlotRejection.ProgressRegressionOrNoProgress);
+            AssertRejectedNoOp(slot, () => slot.AdvanceProgress(.2f, slot.Version, Context("регресс")), PlantingSlotRejection.ProgressRegressionOrNoProgress);
         }
 
         [TestCase(0f)]
@@ -162,6 +163,8 @@ namespace VrGame.Tests.EditMode.Plants
                 () => slot.ApplyFertilizer(new PlantGrowthModifier(2f), Context("повторное удобрение")),
                 PlantingSlotRejection.FertilizerAlreadyApplied);
             slot.AdvanceProgress(1f, slot.Version, Context("созревание"));
+            slot.Water(Context("полив"));
+            slot.AdvanceProgress(1f, slot.Version, Context("созревание после полива"));
             slot.Harvest(Context("сбор"));
 
             Assert.That(slot.GetSnapshot().GrowthModifier, Is.EqualTo(PlantGrowthModifier.None));
@@ -334,6 +337,8 @@ namespace VrGame.Tests.EditMode.Plants
             Assert.Throws<ArgumentException>(() => new PlantingSlot(default, CreateCatalog(), new RecordingSink()));
             Assert.Throws<ArgumentNullException>(() => new PlantingSlot(NewSlotId(), null, new RecordingSink()));
             Assert.Throws<ArgumentNullException>(() => new PlantingSlot(NewSlotId(), CreateCatalog(), null));
+            Assert.Throws<ArgumentNullException>(() =>
+                new PlantingSlot(NewSlotId(), CreateCatalog(), new RecordingSink(), null));
         }
 
         [Test]
@@ -356,6 +361,8 @@ namespace VrGame.Tests.EditMode.Plants
             var slot = CreateSlot(out _);
             slot.Plant(Basil, Context("посадка"));
             slot.AdvanceProgress(1f, slot.Version, Context("созревание"));
+            slot.Water(Context("полив"));
+            slot.AdvanceProgress(1f, slot.Version, Context("созревание после полива"));
             return slot;
         }
 
@@ -384,6 +391,9 @@ namespace VrGame.Tests.EditMode.Plants
             Assert.That(after.NormalizedProgress, Is.EqualTo(before.NormalizedProgress));
             Assert.That(after.ElapsedGrowthSeconds, Is.EqualTo(before.ElapsedGrowthSeconds));
             Assert.That(after.GrowthModifier, Is.EqualTo(before.GrowthModifier));
+            Assert.That(after.WaterRequestThreshold, Is.EqualTo(before.WaterRequestThreshold));
+            Assert.That(after.WaterRequestOccurred, Is.EqualTo(before.WaterRequestOccurred));
+            Assert.That(after.WaterRequestCompleted, Is.EqualTo(before.WaterRequestCompleted));
         }
 
         private static PlantingSlot CreateSlot(out RecordingSink sink)
@@ -453,7 +463,7 @@ namespace VrGame.Tests.EditMode.Plants
 
             public bool TryPublish(PlantingSlotChanged plantingSlotChanged)
             {
-                ReentrantResult = Slot.RequestWater(Context("reentrant запрос воды"));
+                ReentrantResult = Slot.Water(Context("reentrant полив"));
                 return true;
             }
         }

@@ -29,6 +29,8 @@ namespace VrGame.Tests.EditMode.Plants
 
                 Assert.That(runtime.Plants.Definitions[0].Id.Value, Is.EqualTo("plant.basil"));
                 Assert.That(runtime.Plants.GetRequired(new PlantTypeId("plant.mint")).GrowthDuration.Seconds, Is.EqualTo(45f));
+                Assert.That(runtime.Plants.GetRequired(new PlantTypeId("plant.mint")).WaterRequestRange,
+                    Is.EqualTo(new WaterRequestRange(.3f, .7f)));
                 Assert.That(runtime.GetRequiredRepresentation(new PlantRepresentationKey("representation.plant.basil")), Is.SameAs(firstPrefab));
                 Assert.That(runtime.TryGetRepresentation(new PlantRepresentationKey("representation.plant.unknown"), out _), Is.False);
             }
@@ -71,6 +73,31 @@ namespace VrGame.Tests.EditMode.Plants
                 var mint = fixture.Plant("plant.mint", 10f, fixture.MintSeed, fixture.MintHarvest, Stage(0f, second));
 
                 AssertError(PlantDataValidationError.ConflictingRepresentation, () => fixture.Catalog(basil, mint).Build(runtimeItems));
+            }
+            finally { fixture.Dispose(); }
+        }
+
+        [Test]
+        public void PlantAsset_InvalidSerializedWaterRangeFailsDuringBuild()
+        {
+            var fixture = new Fixture();
+            try
+            {
+                var runtimeItems = fixture.CreateRuntimeItems();
+                var representation = fixture.Representation(
+                    "representation.plant.invalid-water",
+                    fixture.CreateObject("InvalidWater"));
+                var definition = fixture.Plant(
+                    "plant.invalid-water",
+                    10f,
+                    fixture.BasilSeed,
+                    fixture.BasilHarvest,
+                    Stage(0f, representation));
+                fixture.SetWaterRange(definition, .8f, .2f);
+
+                AssertError(
+                    PlantDataValidationError.InvalidWaterRequestRange,
+                    () => fixture.Catalog(definition).Build(runtimeItems));
             }
             finally { fixture.Dispose(); }
         }
@@ -131,6 +158,12 @@ namespace VrGame.Tests.EditMode.Plants
                 var serialized = new SerializedObject(asset); var property = serialized.FindProperty("stages"); property.arraySize = stages.Length;
                 for (var i = 0; i < stages.Length; i++) { var element = property.GetArrayElementAtIndex(i); element.FindPropertyRelative("startsAtNormalized").floatValue = stages[i].Threshold; element.FindPropertyRelative("representation").objectReferenceValue = stages[i].Representation; }
                 serialized.ApplyModifiedPropertiesWithoutUndo(); return asset;
+            }
+
+            public void SetWaterRange(PlantDefinitionAsset asset, float min, float max)
+            {
+                Set(asset, "waterRequestMinNormalized", min);
+                Set(asset, "waterRequestMaxNormalized", max);
             }
 
             public PlantCatalogAsset Catalog(params PlantDefinitionAsset[] definitions)

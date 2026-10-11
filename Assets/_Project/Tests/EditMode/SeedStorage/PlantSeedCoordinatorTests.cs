@@ -24,7 +24,7 @@ namespace VrGame.Tests.EditMode.SeedStorage
                 fixture.InventoryQuantitySeenBySink = fixture.Inventory.GetQuantity(BasilSeed);
                 fixture.SlotStateSeenBySink = fixture.Slot.GetSnapshot().State;
                 fixture.InventoryReentry = fixture.Inventory.Add(BasilSeed, 1, InventoryContext());
-                fixture.SlotReentry = fixture.Slot.RequestWater(SlotContext());
+                fixture.SlotReentry = fixture.Slot.Water(SlotContext());
             };
 
             var result = fixture.Coordinator.Plant(Basil, BasilSeed, Context());

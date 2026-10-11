@@ -107,7 +107,8 @@ namespace VrGame.Bootstrap
             PlantingSlot = new PlantingSlot(
                 new PlantingSlotId(Guid.NewGuid()),
                 runtimePlants.Plants,
-                new PlantingSink());
+                new PlantingSink(),
+                new UnityPlantGrowthRandomSource());
             SeedPlanting = new PlantSeedCoordinator(PlayerInventory, runtimePlants.Plants, PlantingSlot);
             plantingReceiver.Configure(plantingSocket, SeedPlanting);
             growthController = plantingReceiver.GetComponent<PlantGrowthController>();
@@ -124,6 +125,11 @@ namespace VrGame.Bootstrap
         private sealed class PlantingSink : IPlantingSlotEventSink
         {
             public bool TryPublish(PlantingSlotChanged plantingSlotChanged) => true;
+        }
+
+        private sealed class UnityPlantGrowthRandomSource : IPlantGrowthRandomSource
+        {
+            public float NextUnit() => UnityEngine.Random.value;
         }
     }
 }

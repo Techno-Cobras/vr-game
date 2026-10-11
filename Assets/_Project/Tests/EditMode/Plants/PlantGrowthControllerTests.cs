@@ -38,10 +38,14 @@ namespace VrGame.Tests.EditMode.Plants
                 Assert.That(fixture.Slot.Version, Is.EqualTo(firstVersion));
 
                 fixture.Controller.SetApplicationPaused(true);
-                Assert.That(fixture.Slot.Version, Is.EqualTo(firstVersion + 1));
-                Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(.55f).Within(.0001f));
+                Assert.That(fixture.Slot.Version, Is.EqualTo(firstVersion));
+                Assert.That(fixture.Slot.GetSnapshot().State, Is.EqualTo(PlantingSlotState.NeedsWater));
+                Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(.5f).Within(.0001f));
                 fixture.Time.Advance(100d);
                 fixture.Controller.SetApplicationPaused(false);
+                fixture.Slot.Water(fixture.Context("полив"));
+                fixture.Time.Advance(.1d);
+                fixture.Controller.ProcessScheduledUpdate();
                 fixture.Time.Advance(.5d);
                 fixture.Controller.ProcessScheduledUpdate();
 
