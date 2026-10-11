@@ -413,6 +413,8 @@ namespace VrGame.Tests.PlayMode.SeedStorage
             Assert.That(composition.PlayerInventory, Is.Not.Null);
             Assert.That(composition.StationController, Is.Not.Null);
             Assert.That(composition.PlantingReceiver, Is.Not.Null);
+            Assert.That(composition.GrowthController, Is.Not.Null);
+            Assert.That(composition.GrowthController.PrecreatedStageCount, Is.EqualTo(6));
             Assert.That(composition.StationController.Snapshot.Entries, Has.Count.EqualTo(2));
             Assert.That(composition.StationController.Snapshot.Entries[0].Quantity, Is.EqualTo(5));
             Assert.That(composition.StationController.Snapshot.Entries[1].Quantity, Is.EqualTo(5));
@@ -430,7 +432,16 @@ namespace VrGame.Tests.PlayMode.SeedStorage
             Assert.That(planted.Succeeded, Is.True);
             Assert.That(composition.PlayerInventory.GetQuantity(BasilSeed), Is.Zero);
             Assert.That(composition.PlantingSlot.GetSnapshot().State, Is.EqualTo(PlantingSlotState.Growing));
-            yield return null;
+            yield return new WaitForSecondsRealtime(.12f);
+
+            var activeStage = composition.GrowthController.ActiveStageObject;
+            Assert.That(activeStage, Is.Not.Null);
+            Assert.That(activeStage.transform.parent.lossyScale, Is.EqualTo(Vector3.one));
+            var stageRenderer = activeStage.GetComponentInChildren<Renderer>(true);
+            Assert.That(stageRenderer, Is.Not.Null);
+            Assert.That(
+                stageRenderer.bounds.min.y,
+                Is.EqualTo(composition.GrowthController.StageSurfaceWorldY).Within(.001f));
         }
 
         private static GameObject CreateSeedPrefab(bool withGrabInteractable)

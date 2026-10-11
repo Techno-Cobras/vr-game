@@ -7,6 +7,7 @@ using VrGame.DataAssets.Plants;
 using VrGame.Domain.Inventory;
 using VrGame.Domain.Plants;
 using VrGame.Domain.SeedStorage;
+using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.SeedStorage;
 
 namespace VrGame.Bootstrap
@@ -56,6 +57,8 @@ namespace VrGame.Bootstrap
         [SerializeField]
         private XRSocketInteractor plantingSocket;
 
+        private PlantGrowthController growthController;
+
         public SeedDispenseCoordinator SeedStorage { get; private set; }
         public PlantSeedCoordinator SeedPlanting { get; private set; }
         public PlantingSlot PlantingSlot { get; private set; }
@@ -64,6 +67,7 @@ namespace VrGame.Bootstrap
         public Inventory Inventory => WarehouseInventory;
         public SeedStorageStationController StationController => stationController;
         public SeedPlantingReceiver PlantingReceiver => plantingReceiver;
+        public PlantGrowthController GrowthController => growthController;
 
         private void Awake()
         {
@@ -106,6 +110,10 @@ namespace VrGame.Bootstrap
                 new PlantingSink());
             SeedPlanting = new PlantSeedCoordinator(PlayerInventory, runtimePlants.Plants, PlantingSlot);
             plantingReceiver.Configure(plantingSocket, SeedPlanting);
+            growthController = plantingReceiver.GetComponent<PlantGrowthController>();
+            if (growthController == null)
+                throw new InvalidOperationException("Контроллер роста отсутствует на planting slot.");
+            growthController.Configure(PlantingSlot, runtimePlants);
         }
 
         private sealed class InventorySink : IInventoryEventSink

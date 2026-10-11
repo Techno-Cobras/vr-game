@@ -12,6 +12,7 @@ using VrGame.Data.Items;
 using VrGame.DataAssets;
 using VrGame.DataAssets.Plants;
 using VrGame.Presentation.SeedStorage;
+using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.SeedStorage;
 
 namespace VrGame.Editor
@@ -29,8 +30,12 @@ namespace VrGame.Editor
 
             var basilSeedPrefab = CreateItemPrefab("Саженец базилика", PrefabRoot + "/BasilSeed.prefab", new Color(.3f, .8f, .25f));
             var mintSeedPrefab = CreateItemPrefab("Саженец мяты", PrefabRoot + "/MintSeed.prefab", new Color(.2f, .75f, .65f));
-            var basilPlantPrefab = CreatePlantPrefab("Базилик", PrefabRoot + "/BasilPlant.prefab", new Color(.15f, .65f, .2f));
-            var mintPlantPrefab = CreatePlantPrefab("Мята", PrefabRoot + "/MintPlant.prefab", new Color(.2f, .7f, .55f));
+            var basilSproutPrefab = CreatePlantPrefab("Росток базилика", PrefabRoot + "/BasilSprout.prefab", new Color(.35f, .8f, .25f), .35f);
+            var basilYoungPrefab = CreatePlantPrefab("Молодой базилик", PrefabRoot + "/BasilYoung.prefab", new Color(.22f, .72f, .2f), .65f);
+            var basilPlantPrefab = CreatePlantPrefab("Базилик", PrefabRoot + "/BasilPlant.prefab", new Color(.15f, .65f, .2f), 1f);
+            var mintSproutPrefab = CreatePlantPrefab("Росток мяты", PrefabRoot + "/MintSprout.prefab", new Color(.35f, .85f, .65f), .35f);
+            var mintYoungPrefab = CreatePlantPrefab("Молодая мята", PrefabRoot + "/MintYoung.prefab", new Color(.25f, .78f, .6f), .65f);
+            var mintPlantPrefab = CreatePlantPrefab("Мята", PrefabRoot + "/MintPlant.prefab", new Color(.2f, .7f, .55f), 1f);
 
             var basilSeedRepresentation = CreateItemRepresentation("representation.seed.basil", basilSeedPrefab, DataRoot + "/BasilSeedRepresentation.asset");
             var mintSeedRepresentation = CreateItemRepresentation("representation.seed.mint", mintSeedPrefab, DataRoot + "/MintSeedRepresentation.asset");
@@ -44,10 +49,26 @@ namespace VrGame.Editor
             var itemCatalog = CreateAsset<ItemCatalogAsset>(DataRoot + "/SeedStorageItemCatalog.asset");
             SetObjectArray(itemCatalog, "definitions", new UnityEngine.Object[] { basilSeed, mintSeed, basilHarvest, mintHarvest });
 
+            var basilSproutRepresentation = CreatePlantRepresentation("representation.plant.basil.sprout", basilSproutPrefab, DataRoot + "/BasilSproutRepresentation.asset");
+            var basilYoungRepresentation = CreatePlantRepresentation("representation.plant.basil.young", basilYoungPrefab, DataRoot + "/BasilYoungRepresentation.asset");
             var basilPlantRepresentation = CreatePlantRepresentation("representation.plant.basil", basilPlantPrefab, DataRoot + "/BasilPlantRepresentation.asset");
+            var mintSproutRepresentation = CreatePlantRepresentation("representation.plant.mint.sprout", mintSproutPrefab, DataRoot + "/MintSproutRepresentation.asset");
+            var mintYoungRepresentation = CreatePlantRepresentation("representation.plant.mint.young", mintYoungPrefab, DataRoot + "/MintYoungRepresentation.asset");
             var mintPlantRepresentation = CreatePlantRepresentation("representation.plant.mint", mintPlantPrefab, DataRoot + "/MintPlantRepresentation.asset");
-            var basilPlant = CreatePlant("plant.basil", 60f, basilSeed, basilHarvest, basilPlantRepresentation, DataRoot + "/BasilPlant.asset");
-            var mintPlant = CreatePlant("plant.mint", 75f, mintSeed, mintHarvest, mintPlantRepresentation, DataRoot + "/MintPlant.asset");
+            var basilPlant = CreatePlant(
+                "plant.basil",
+                60f,
+                basilSeed,
+                basilHarvest,
+                new[] { basilSproutRepresentation, basilYoungRepresentation, basilPlantRepresentation },
+                DataRoot + "/BasilPlant.asset");
+            var mintPlant = CreatePlant(
+                "plant.mint",
+                75f,
+                mintSeed,
+                mintHarvest,
+                new[] { mintSproutRepresentation, mintYoungRepresentation, mintPlantRepresentation },
+                DataRoot + "/MintPlant.asset");
             var plantCatalog = CreateAsset<PlantCatalogAsset>(DataRoot + "/SeedStoragePlantCatalog.asset");
             SetObjectArray(plantCatalog, "definitions", new UnityEngine.Object[] { basilPlant, mintPlant });
 
@@ -131,14 +152,27 @@ namespace VrGame.Editor
 
         private static GameObject CreatePlantingSlotPrefab()
         {
-            var root = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            root.name = "Гнездо посадки";
-            root.transform.localScale = new Vector3(.35f, .08f, .35f);
-            var collider = root.GetComponent<Collider>();
+            var root = new GameObject("Гнездо посадки");
+            var soil = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            soil.name = "Почва";
+            soil.transform.SetParent(root.transform, false);
+            soil.transform.localScale = new Vector3(.35f, .08f, .35f);
+            UnityEngine.Object.DestroyImmediate(soil.GetComponent<Collider>());
+            var collider = root.AddComponent<CapsuleCollider>();
             collider.isTrigger = true;
+            collider.radius = .175f;
+            collider.height = .16f;
+            root.name = "Гнездо посадки";
             root.AddComponent<Rigidbody>().isKinematic = true;
             root.AddComponent<XRSocketInteractor>();
             root.AddComponent<SeedPlantingReceiver>();
+            var visualRoot = new GameObject("Визуальные стадии").transform;
+            visualRoot.SetParent(root.transform, false);
+            visualRoot.localPosition = new Vector3(0f, .08f, 0f);
+            var growthController = root.AddComponent<PlantGrowthController>();
+            var growthSerialized = new SerializedObject(growthController);
+            growthSerialized.FindProperty("visualRoot").objectReferenceValue = visualRoot;
+            growthSerialized.ApplyModifiedPropertiesWithoutUndo();
             var path = PrefabRoot + "/SeedPlantingSlot.prefab";
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
@@ -158,12 +192,13 @@ namespace VrGame.Editor
             return prefab;
         }
 
-        private static GameObject CreatePlantPrefab(string name, string path, Color color)
+        private static GameObject CreatePlantPrefab(string name, string path, Color color, float scale)
         {
             var root = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             root.name = name;
-            root.transform.localScale = new Vector3(.12f, .3f, .12f);
+            root.transform.localScale = new Vector3(.12f, .3f, .12f) * scale;
             root.GetComponent<Renderer>().sharedMaterial = CreateMaterial(path.Replace(".prefab", ".mat"), color);
+            UnityEngine.Object.DestroyImmediate(root.GetComponent<Collider>());
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
             return prefab;
@@ -210,7 +245,13 @@ namespace VrGame.Editor
             return asset;
         }
 
-        private static PlantDefinitionAsset CreatePlant(string id, float duration, ItemDefinitionAsset seed, ItemDefinitionAsset harvest, PlantRepresentationAsset representation, string path)
+        private static PlantDefinitionAsset CreatePlant(
+            string id,
+            float duration,
+            ItemDefinitionAsset seed,
+            ItemDefinitionAsset harvest,
+            PlantRepresentationAsset[] representations,
+            string path)
         {
             var asset = CreateAsset<PlantDefinitionAsset>(path);
             var serialized = new SerializedObject(asset);
@@ -219,10 +260,13 @@ namespace VrGame.Editor
             serialized.FindProperty("seedItem").objectReferenceValue = seed;
             serialized.FindProperty("harvestItem").objectReferenceValue = harvest;
             var stages = serialized.FindProperty("stages");
-            stages.arraySize = 1;
-            var stage = stages.GetArrayElementAtIndex(0);
-            stage.FindPropertyRelative("startsAtNormalized").floatValue = 0f;
-            stage.FindPropertyRelative("representation").objectReferenceValue = representation;
+            stages.arraySize = representations.Length;
+            for (var index = 0; index < representations.Length; index++)
+            {
+                var stage = stages.GetArrayElementAtIndex(index);
+                stage.FindPropertyRelative("startsAtNormalized").floatValue = index * .5f;
+                stage.FindPropertyRelative("representation").objectReferenceValue = representations[index];
+            }
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return asset;
         }

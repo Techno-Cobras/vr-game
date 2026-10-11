@@ -9,6 +9,7 @@ namespace VrGame.Domain.Plants
             long version,
             PlantingSlotState state,
             PlantTypeId? plantTypeId,
+            float elapsedGrowthSeconds,
             float normalizedProgress,
             PlantGrowthModifier growthModifier)
         {
@@ -16,6 +17,7 @@ namespace VrGame.Domain.Plants
             Version = version;
             State = state;
             PlantTypeId = plantTypeId;
+            ElapsedGrowthSeconds = elapsedGrowthSeconds;
             NormalizedProgress = normalizedProgress;
             GrowthModifier = growthModifier;
         }
@@ -24,6 +26,7 @@ namespace VrGame.Domain.Plants
         public long Version { get; }
         public PlantingSlotState State { get; }
         public PlantTypeId? PlantTypeId { get; }
+        public float ElapsedGrowthSeconds { get; }
         public float NormalizedProgress { get; }
         public PlantGrowthModifier GrowthModifier { get; }
     }

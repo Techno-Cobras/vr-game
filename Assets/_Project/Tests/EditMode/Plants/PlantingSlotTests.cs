@@ -24,6 +24,7 @@ namespace VrGame.Tests.EditMode.Plants
             Assert.That(snapshot.State, Is.EqualTo(PlantingSlotState.Empty));
             Assert.That(snapshot.PlantTypeId, Is.Null);
             Assert.That(snapshot.NormalizedProgress, Is.Zero);
+            Assert.That(snapshot.ElapsedGrowthSeconds, Is.Zero);
             Assert.That(snapshot.GrowthModifier, Is.EqualTo(PlantGrowthModifier.None));
             Assert.That(snapshot.GrowthModifier.IsApplied, Is.False);
             Assert.That(snapshot.GrowthModifier.EffectiveMultiplier, Is.EqualTo(1f));
@@ -381,6 +382,7 @@ namespace VrGame.Tests.EditMode.Plants
             Assert.That(after.State, Is.EqualTo(before.State));
             Assert.That(after.PlantTypeId, Is.EqualTo(before.PlantTypeId));
             Assert.That(after.NormalizedProgress, Is.EqualTo(before.NormalizedProgress));
+            Assert.That(after.ElapsedGrowthSeconds, Is.EqualTo(before.ElapsedGrowthSeconds));
             Assert.That(after.GrowthModifier, Is.EqualTo(before.GrowthModifier));
         }
 
