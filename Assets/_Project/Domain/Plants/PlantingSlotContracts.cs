@@ -35,6 +35,7 @@ namespace VrGame.Domain.Plants
         FertilizerAlreadyApplied,
         ArithmeticOverflow,
         ReentrantMutation,
-        CommandConflict
+        CommandConflict,
+        AutomaticWaterRequestOnly
     }
 }

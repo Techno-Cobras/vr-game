@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: VrGame.DataAssets::VrGame.DataAssets.Plants.PlantDefinitionAsset
   id: plant.basil
   growthDurationSeconds: 60
+  waterRequestMinNormalized: 0.3
+  waterRequestMaxNormalized: 0.7
   seedItem: {fileID: 11400000, guid: 6a3a03e6852f6b04aa22feb7574740b5, type: 2}
   harvestItem: {fileID: 11400000, guid: 80d71014cbf7b3149b4438f55183c517, type: 2}
   stages:

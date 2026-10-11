@@ -257,6 +257,8 @@ namespace VrGame.Editor
             var serialized = new SerializedObject(asset);
             serialized.FindProperty("id").stringValue = id;
             serialized.FindProperty("growthDurationSeconds").floatValue = duration;
+            serialized.FindProperty("waterRequestMinNormalized").floatValue = .3f;
+            serialized.FindProperty("waterRequestMaxNormalized").floatValue = .7f;
             serialized.FindProperty("seedItem").objectReferenceValue = seed;
             serialized.FindProperty("harvestItem").objectReferenceValue = harvest;
             var stages = serialized.FindProperty("stages");

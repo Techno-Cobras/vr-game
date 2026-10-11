@@ -14,6 +14,12 @@ namespace VrGame.DataAssets.Plants
         [SerializeField, Min(0.01f)]
         private float growthDurationSeconds = 1f;
 
+        [SerializeField, Range(.01f, .98f)]
+        private float waterRequestMinNormalized = .3f;
+
+        [SerializeField, Range(.02f, .99f)]
+        private float waterRequestMaxNormalized = .7f;
+
         [SerializeField]
         private ItemDefinitionAsset seedItem;
 
@@ -52,6 +58,7 @@ namespace VrGame.DataAssets.Plants
                 new GrowthDuration(growthDurationSeconds),
                 seedItem.GetId(),
                 harvestItem.GetId(),
+                new WaterRequestRange(waterRequestMinNormalized, waterRequestMaxNormalized),
                 stageDefinitions);
         }
     }

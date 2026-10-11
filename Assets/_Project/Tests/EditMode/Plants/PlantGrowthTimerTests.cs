@@ -84,32 +84,115 @@ namespace VrGame.Tests.EditMode.Plants
             var fixture = new Fixture(10f);
             fixture.Plant();
             fixture.Timer.Resume();
-            fixture.Time.Advance(2d);
+            fixture.Time.Advance(5d);
             fixture.Timer.Tick();
-            fixture.Slot.RequestWater(fixture.Context("потребность в воде"));
-
-            fixture.Time.Advance(50d);
-            Assert.That(fixture.Timer.Tick(), Is.Null);
+            fixture.Time.Advance(.04d);
             fixture.Slot.Water(fixture.Context("полив"));
+            fixture.Time.Advance(.06d);
+            Assert.That(fixture.Timer.Tick(), Is.Null);
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(5f).Within(.0001f));
             fixture.Time.Advance(1d);
             fixture.Timer.Tick();
 
-            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(3f).Within(.0001f));
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(6f).Within(.0001f));
         }
 
         [Test]
-        public void Tick_RefreshesBaselineWhileSlotIsEmpty()
+        public void Tick_DropsBlockedIntervalWhenWaterRequestCompletesBetweenTicks()
+        {
+            var fixture = new Fixture(10f);
+            fixture.Plant();
+            fixture.Timer.Resume();
+
+            fixture.Time.Advance(2d);
+            fixture.Slot.AdvanceProgress(.5f, fixture.Slot.Version, fixture.Context("внешний рост до воды"));
+            fixture.Time.Advance(100d);
+            fixture.Slot.Water(fixture.Context("полив между тиками"));
+            fixture.Time.Advance(1d);
+
+            Assert.That(fixture.Timer.Tick(), Is.Null);
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(5f).Within(.0001f));
+
+            fixture.Time.Advance(1d);
+            fixture.Timer.Tick();
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(6f).Within(.0001f));
+        }
+
+        [Test]
+        public void Tick_FertilizerCrossingClampsExactlyToWaterThreshold()
+        {
+            var fixture = new Fixture(10f);
+            fixture.Plant();
+            fixture.Slot.ApplyFertilizer(new PlantGrowthModifier(2f), fixture.Context("удобрение"));
+            fixture.Timer.Resume();
+
+            fixture.Time.Advance(3d);
+            var result = fixture.Timer.Tick();
+
+            Assert.That(result.Succeeded, Is.True);
+            Assert.That(fixture.Slot.GetSnapshot().State, Is.EqualTo(PlantingSlotState.NeedsWater));
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(5f));
+            Assert.That(fixture.Slot.GetSnapshot().NormalizedProgress, Is.EqualTo(.5f));
+        }
+
+        [Test]
+        public void Tick_DropsIntervalWhenPlantingOccursBetweenTicks()
         {
             var fixture = new Fixture(10f);
             fixture.Timer.Resume();
             fixture.Time.Advance(50d);
-            Assert.That(fixture.Timer.Tick(), Is.Null);
             fixture.Plant();
 
             fixture.Time.Advance(1d);
+            Assert.That(fixture.Timer.Tick(), Is.Null);
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.Zero);
+
+            fixture.Time.Advance(1d);
+            fixture.Timer.Tick();
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(1f).Within(.0001f));
+        }
+
+        [Test]
+        public void Tick_DropsIntervalAcrossHarvestAndReplantWithSameThreshold()
+        {
+            var fixture = new Fixture(10f);
+            fixture.Plant();
+            fixture.Timer.Resume();
+            fixture.Time.Advance(5d);
+            fixture.Timer.Tick();
+            var firstThreshold = fixture.Slot.GetSnapshot().WaterRequestThreshold;
+
+            fixture.Slot.Water(fixture.Context("полив"));
+            fixture.Slot.AdvanceProgress(1f, fixture.Slot.Version, fixture.Context("созревание"));
+            fixture.Slot.Harvest(fixture.Context("сбор"));
+            fixture.Plant();
+            Assert.That(fixture.Slot.GetSnapshot().WaterRequestThreshold, Is.EqualTo(firstThreshold));
+
+            fixture.Time.Advance(1d);
+            Assert.That(fixture.Timer.Tick(), Is.Null);
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.Zero);
+
+            fixture.Time.Advance(1d);
+            fixture.Timer.Tick();
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(1f).Within(.0001f));
+        }
+
+        [Test]
+        public void PauseAndResumeAfterWaterWithZeroPauseDelta_DoesNotDropNextActiveInterval()
+        {
+            var fixture = new Fixture(10f);
+            fixture.Plant();
+            fixture.Timer.Resume();
+            fixture.Time.Advance(5d);
+            fixture.Timer.Tick();
+            fixture.Slot.Water(fixture.Context("полив"));
+
+            fixture.Timer.Pause();
+            fixture.Timer.Resume();
+            fixture.Time.Advance(1d);
             fixture.Timer.Tick();
 
-            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(1f).Within(.0001f));
+            Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(6f).Within(.0001f));
         }
 
         [Test]
@@ -121,6 +204,12 @@ namespace VrGame.Tests.EditMode.Plants
 
             fixture.Time.Advance(10d);
             var completion = fixture.Timer.Tick();
+            Assert.That(fixture.Slot.GetSnapshot().State, Is.EqualTo(PlantingSlotState.NeedsWater));
+            fixture.Slot.Water(fixture.Context("полив"));
+            fixture.Time.Advance(1d);
+            Assert.That(fixture.Timer.Tick(), Is.Null);
+            fixture.Time.Advance(10d);
+            completion = fixture.Timer.Tick();
             fixture.Time.Advance(10d);
             var repeated = fixture.Timer.Tick();
 
@@ -128,7 +217,7 @@ namespace VrGame.Tests.EditMode.Plants
             Assert.That(repeated, Is.Null);
             Assert.That(fixture.Slot.GetSnapshot().State, Is.EqualTo(PlantingSlotState.ReadyToHarvest));
             Assert.That(fixture.Slot.GetSnapshot().ElapsedGrowthSeconds, Is.EqualTo(3f));
-            Assert.That(fixture.Sink.GrowthChanges, Is.EqualTo(1));
+            Assert.That(fixture.Sink.GrowthChanges, Is.EqualTo(2));
         }
 
         [TestCase(0f, "representation.plant.timer.seed")]

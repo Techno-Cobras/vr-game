@@ -8,6 +8,7 @@ namespace VrGame.Domain.Plants
     {
         private readonly PlantCatalog catalog;
         private readonly IPlantingSlotEventSink eventSink;
+        private readonly IPlantGrowthRandomSource randomSource;
         private readonly Dictionary<CommandKey, CompletedCommand> completedCommands =
             new Dictionary<CommandKey, CompletedCommand>();
         private PlantingSlotState state;
@@ -15,9 +16,21 @@ namespace VrGame.Domain.Plants
         private float elapsedGrowthSeconds;
         private float normalizedProgress;
         private PlantGrowthModifier growthModifier;
+        private float? waterRequestThreshold;
+        private bool waterRequestOccurred;
+        private bool waterRequestCompleted;
         private bool isPublishingEvent;
 
         public PlantingSlot(PlantingSlotId id, PlantCatalog catalog, IPlantingSlotEventSink eventSink)
+            : this(id, catalog, eventSink, MidpointRandomSource.Instance)
+        {
+        }
+
+        public PlantingSlot(
+            PlantingSlotId id,
+            PlantCatalog catalog,
+            IPlantingSlotEventSink eventSink,
+            IPlantGrowthRandomSource randomSource)
         {
             if (id.Value == Guid.Empty)
                 throw new ArgumentException("Planting slot ID не может быть пустым.", nameof(id));
@@ -25,6 +38,7 @@ namespace VrGame.Domain.Plants
             Id = id;
             this.catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             this.eventSink = eventSink ?? throw new ArgumentNullException(nameof(eventSink));
+            this.randomSource = randomSource ?? throw new ArgumentNullException(nameof(randomSource));
             state = PlantingSlotState.Empty;
             growthModifier = PlantGrowthModifier.None;
         }
@@ -40,7 +54,10 @@ namespace VrGame.Domain.Plants
                 plantTypeId,
                 elapsedGrowthSeconds,
                 normalizedProgress,
-                growthModifier);
+                growthModifier,
+                waterRequestThreshold,
+                waterRequestOccurred,
+                waterRequestCompleted);
 
         public PlantingSlotMutationResult Plant(PlantTypeId typeId, PlantingSlotChangeContext context) =>
             Execute(PlantingSlotMutationKind.Plant, CommandPayload.ForPlant(typeId), context);
@@ -74,8 +91,19 @@ namespace VrGame.Domain.Plants
                 expectedVersion: expectedVersion);
         }
 
-        public PlantingSlotMutationResult RequestWater(PlantingSlotChangeContext context) =>
-            Execute(PlantingSlotMutationKind.RequestWater, CommandPayload.None, context);
+        [Obsolete("Запрос воды создаётся автоматически при достижении порога роста.")]
+        public PlantingSlotMutationResult RequestWater(PlantingSlotChangeContext context)
+        {
+            if (isPublishingEvent)
+                return PlantingSlotMutationResult.Reject(PlantingSlotRejection.ReentrantMutation);
+            if (!context.IsValid)
+                return PlantingSlotMutationResult.Reject(PlantingSlotRejection.InvalidContext);
+
+            return PlantingSlotMutationResult.Reject(
+                state == PlantingSlotState.NeedsWater
+                    ? PlantingSlotRejection.AlreadyNeedsWater
+                    : PlantingSlotRejection.AutomaticWaterRequestOnly);
+        }
 
         public PlantingSlotMutationResult Water(PlantingSlotChangeContext context) =>
             Execute(PlantingSlotMutationKind.Water, CommandPayload.None, context);
@@ -121,8 +149,15 @@ namespace VrGame.Domain.Plants
                     ? CompleteRejection(key, payload, context, PlantingSlotRejection.ArithmeticOverflow)
                     : PlantingSlotMutationResult.Reject(PlantingSlotRejection.ArithmeticOverflow);
 
+            float? selectedWaterThreshold = null;
+            if (kind == PlantingSlotMutationKind.Plant)
+            {
+                var definition = catalog.GetRequired(payload.PlantTypeId);
+                selectedWaterThreshold = definition.WaterRequestRange.Select(randomSource.NextUnit());
+            }
+
             var before = GetSnapshot();
-            Apply(kind, payload);
+            Apply(kind, payload, selectedWaterThreshold);
             Version++;
             var after = GetSnapshot();
             var change = new PlantingSlotChanged(kind, context, before, after);
@@ -172,13 +207,6 @@ namespace VrGame.Domain.Plants
                         ? PlantingSlotRejection.ProgressRegressionOrNoProgress
                         : PlantingSlotRejection.None;
 
-                case PlantingSlotMutationKind.RequestWater:
-                    if (state == PlantingSlotState.NeedsWater)
-                        return PlantingSlotRejection.AlreadyNeedsWater;
-                    return state == PlantingSlotState.Growing
-                        ? PlantingSlotRejection.None
-                        : PlantingSlotRejection.NotGrowing;
-
                 case PlantingSlotMutationKind.Water:
                     return state == PlantingSlotState.NeedsWater
                         ? PlantingSlotRejection.None
@@ -203,7 +231,10 @@ namespace VrGame.Domain.Plants
             }
         }
 
-        private void Apply(PlantingSlotMutationKind kind, CommandPayload payload)
+        private void Apply(
+            PlantingSlotMutationKind kind,
+            CommandPayload payload,
+            float? selectedWaterThreshold = null)
         {
             switch (kind)
             {
@@ -213,18 +244,33 @@ namespace VrGame.Domain.Plants
                     elapsedGrowthSeconds = 0f;
                     normalizedProgress = 0f;
                     growthModifier = PlantGrowthModifier.None;
+                    waterRequestThreshold = selectedWaterThreshold ??
+                        throw new InvalidOperationException("Для нового цикла растения не выбран порог воды.");
+                    waterRequestOccurred = false;
+                    waterRequestCompleted = false;
                     break;
                 case PlantingSlotMutationKind.AdvanceProgress:
-                    elapsedGrowthSeconds = payload.ElapsedSeconds;
-                    normalizedProgress = payload.Progress;
+                    if (!waterRequestOccurred &&
+                        waterRequestThreshold.HasValue &&
+                        payload.Progress >= waterRequestThreshold.Value)
+                    {
+                        var definition = catalog.GetRequired(plantTypeId.Value);
+                        normalizedProgress = waterRequestThreshold.Value;
+                        elapsedGrowthSeconds = definition.GrowthDuration.Seconds * normalizedProgress;
+                        waterRequestOccurred = true;
+                        state = PlantingSlotState.NeedsWater;
+                    }
+                    else
+                    {
+                        elapsedGrowthSeconds = payload.ElapsedSeconds;
+                        normalizedProgress = payload.Progress;
+                    }
                     if (normalizedProgress == 1f)
                         state = PlantingSlotState.ReadyToHarvest;
                     break;
-                case PlantingSlotMutationKind.RequestWater:
-                    state = PlantingSlotState.NeedsWater;
-                    break;
                 case PlantingSlotMutationKind.Water:
                     state = PlantingSlotState.Growing;
+                    waterRequestCompleted = true;
                     break;
                 case PlantingSlotMutationKind.ApplyFertilizer:
                     growthModifier = payload.Modifier;
@@ -235,6 +281,9 @@ namespace VrGame.Domain.Plants
                     elapsedGrowthSeconds = 0f;
                     normalizedProgress = 0f;
                     growthModifier = PlantGrowthModifier.None;
+                    waterRequestThreshold = null;
+                    waterRequestOccurred = false;
+                    waterRequestCompleted = false;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
@@ -328,6 +377,12 @@ namespace VrGame.Domain.Plants
                 payload.Equals(candidatePayload) &&
                 string.Equals(reason, context.Reason, StringComparison.Ordinal) &&
                 correlationId == context.CorrelationId;
+        }
+
+        private sealed class MidpointRandomSource : IPlantGrowthRandomSource
+        {
+            public static readonly MidpointRandomSource Instance = new MidpointRandomSource();
+            public float NextUnit() => .5f;
         }
     }
 }

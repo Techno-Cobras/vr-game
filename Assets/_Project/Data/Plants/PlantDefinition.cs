@@ -13,6 +13,17 @@ namespace VrGame.Data.Plants
             ItemId seedItemId,
             ItemId harvestItemId,
             IEnumerable<PlantStageDefinition> stages)
+            : this(id, growthDuration, seedItemId, harvestItemId, WaterRequestRange.Default, stages)
+        {
+        }
+
+        public PlantDefinition(
+            PlantTypeId id,
+            GrowthDuration growthDuration,
+            ItemId seedItemId,
+            ItemId harvestItemId,
+            WaterRequestRange waterRequestRange,
+            IEnumerable<PlantStageDefinition> stages)
         {
             if (string.IsNullOrEmpty(id.Value))
                 throw new PlantDataValidationException(PlantDataValidationError.InvalidPlantTypeId, "У растения отсутствует стабильный ID.");
@@ -22,6 +33,10 @@ namespace VrGame.Data.Plants
                 throw new PlantDataValidationException(PlantDataValidationError.MissingSeedItem, $"У растения '{id}' отсутствует seed item.");
             if (string.IsNullOrEmpty(harvestItemId.Value))
                 throw new PlantDataValidationException(PlantDataValidationError.MissingHarvestItem, $"У растения '{id}' отсутствует harvest item.");
+            if (!waterRequestRange.IsValid)
+                throw new PlantDataValidationException(
+                    PlantDataValidationError.InvalidWaterRequestRange,
+                    $"У растения '{id}' некорректный диапазон запроса воды.");
             if (stages == null)
                 throw new PlantDataValidationException(PlantDataValidationError.MissingStages, $"У растения '{id}' отсутствуют стадии роста.");
 
@@ -46,6 +61,7 @@ namespace VrGame.Data.Plants
             GrowthDuration = growthDuration;
             SeedItemId = seedItemId;
             HarvestItemId = harvestItemId;
+            WaterRequestRange = waterRequestRange;
             Stages = new ReadOnlyCollection<PlantStageDefinition>(stageList);
         }
 
@@ -53,6 +69,7 @@ namespace VrGame.Data.Plants
         public GrowthDuration GrowthDuration { get; }
         public ItemId SeedItemId { get; }
         public ItemId HarvestItemId { get; }
+        public WaterRequestRange WaterRequestRange { get; }
         public IReadOnlyList<PlantStageDefinition> Stages { get; }
     }
 }
