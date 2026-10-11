@@ -12,6 +12,7 @@ namespace VrGame.Domain.Plants
             new Dictionary<CommandKey, CompletedCommand>();
         private PlantingSlotState state;
         private PlantTypeId? plantTypeId;
+        private float elapsedGrowthSeconds;
         private float normalizedProgress;
         private PlantGrowthModifier growthModifier;
         private bool isPublishingEvent;
@@ -32,7 +33,14 @@ namespace VrGame.Domain.Plants
         public long Version { get; private set; }
 
         public PlantingSlotSnapshot GetSnapshot() =>
-            new PlantingSlotSnapshot(Id, Version, state, plantTypeId, normalizedProgress, growthModifier);
+            new PlantingSlotSnapshot(
+                Id,
+                Version,
+                state,
+                plantTypeId,
+                elapsedGrowthSeconds,
+                normalizedProgress,
+                growthModifier);
 
         public PlantingSlotMutationResult Plant(PlantTypeId typeId, PlantingSlotChangeContext context) =>
             Execute(PlantingSlotMutationKind.Plant, CommandPayload.ForPlant(typeId), context);
@@ -40,13 +48,31 @@ namespace VrGame.Domain.Plants
         public PlantingSlotMutationResult AdvanceProgress(
             float absoluteTarget,
             long expectedVersion,
-            PlantingSlotChangeContext context) =>
-            Execute(
+            PlantingSlotChangeContext context)
+        {
+            var elapsedTarget = 0f;
+            if (plantTypeId.HasValue && catalog.TryGet(plantTypeId.Value, out var definition))
+                elapsedTarget = absoluteTarget * definition.GrowthDuration.Seconds;
+
+            return AdvanceGrowth(elapsedTarget, expectedVersion, context);
+        }
+
+        public PlantingSlotMutationResult AdvanceGrowth(
+            float absoluteElapsedSeconds,
+            long expectedVersion,
+            PlantingSlotChangeContext context)
+        {
+            var normalizedTarget = 0f;
+            if (plantTypeId.HasValue && catalog.TryGet(plantTypeId.Value, out var definition))
+                normalizedTarget = absoluteElapsedSeconds / definition.GrowthDuration.Seconds;
+
+            return Execute(
                 PlantingSlotMutationKind.AdvanceProgress,
-                CommandPayload.ForProgress(absoluteTarget),
+                CommandPayload.ForGrowth(absoluteElapsedSeconds, normalizedTarget),
                 context,
                 cacheResult: false,
                 expectedVersion: expectedVersion);
+        }
 
         public PlantingSlotMutationResult RequestWater(PlantingSlotChangeContext context) =>
             Execute(PlantingSlotMutationKind.RequestWater, CommandPayload.None, context);
@@ -136,11 +162,13 @@ namespace VrGame.Domain.Plants
 
                 case PlantingSlotMutationKind.AdvanceProgress:
                     if (float.IsNaN(payload.Progress) || float.IsInfinity(payload.Progress) ||
-                        payload.Progress < 0f || payload.Progress > 1f)
+                        payload.Progress < 0f || payload.Progress > 1f ||
+                        float.IsNaN(payload.ElapsedSeconds) || float.IsInfinity(payload.ElapsedSeconds) ||
+                        payload.ElapsedSeconds < 0f)
                         return PlantingSlotRejection.InvalidProgress;
                     if (state != PlantingSlotState.Growing)
                         return PlantingSlotRejection.NotGrowing;
-                    return payload.Progress <= normalizedProgress
+                    return payload.Progress <= normalizedProgress || payload.ElapsedSeconds <= elapsedGrowthSeconds
                         ? PlantingSlotRejection.ProgressRegressionOrNoProgress
                         : PlantingSlotRejection.None;
 
@@ -182,10 +210,12 @@ namespace VrGame.Domain.Plants
                 case PlantingSlotMutationKind.Plant:
                     state = PlantingSlotState.Growing;
                     plantTypeId = payload.PlantTypeId;
+                    elapsedGrowthSeconds = 0f;
                     normalizedProgress = 0f;
                     growthModifier = PlantGrowthModifier.None;
                     break;
                 case PlantingSlotMutationKind.AdvanceProgress:
+                    elapsedGrowthSeconds = payload.ElapsedSeconds;
                     normalizedProgress = payload.Progress;
                     if (normalizedProgress == 1f)
                         state = PlantingSlotState.ReadyToHarvest;
@@ -202,6 +232,7 @@ namespace VrGame.Domain.Plants
                 case PlantingSlotMutationKind.Harvest:
                     state = PlantingSlotState.Empty;
                     plantTypeId = null;
+                    elapsedGrowthSeconds = 0f;
                     normalizedProgress = 0f;
                     growthModifier = PlantGrowthModifier.None;
                     break;
@@ -239,29 +270,39 @@ namespace VrGame.Domain.Plants
 
         private readonly struct CommandPayload : IEquatable<CommandPayload>
         {
-            private CommandPayload(PlantTypeId plantTypeId, float progress, PlantGrowthModifier modifier)
+            private CommandPayload(
+                PlantTypeId plantTypeId,
+                float elapsedSeconds,
+                float progress,
+                PlantGrowthModifier modifier)
             {
                 PlantTypeId = plantTypeId;
+                ElapsedSeconds = elapsedSeconds;
                 Progress = progress;
                 Modifier = modifier;
             }
 
             public static CommandPayload None => default;
             public PlantTypeId PlantTypeId { get; }
+            public float ElapsedSeconds { get; }
             public float Progress { get; }
             public PlantGrowthModifier Modifier { get; }
 
-            public static CommandPayload ForPlant(PlantTypeId id) => new CommandPayload(id, 0f, default);
-            public static CommandPayload ForProgress(float progress) => new CommandPayload(default, progress, default);
-            public static CommandPayload ForModifier(PlantGrowthModifier modifier) => new CommandPayload(default, 0f, modifier);
+            public static CommandPayload ForPlant(PlantTypeId id) => new CommandPayload(id, 0f, 0f, default);
+            public static CommandPayload ForGrowth(float elapsedSeconds, float progress) =>
+                new CommandPayload(default, elapsedSeconds, progress, default);
+            public static CommandPayload ForModifier(PlantGrowthModifier modifier) =>
+                new CommandPayload(default, 0f, 0f, modifier);
 
             public bool Equals(CommandPayload other) =>
                 PlantTypeId.Equals(other.PlantTypeId) &&
+                ElapsedSeconds.Equals(other.ElapsedSeconds) &&
                 Progress.Equals(other.Progress) &&
                 Modifier.Equals(other.Modifier);
             public override bool Equals(object obj) => obj is CommandPayload other && Equals(other);
             public override int GetHashCode() =>
-                ((PlantTypeId.GetHashCode() * 397) ^ Progress.GetHashCode()) * 397 ^ Modifier.GetHashCode();
+                (((PlantTypeId.GetHashCode() * 397) ^ ElapsedSeconds.GetHashCode()) * 397 ^
+                 Progress.GetHashCode()) * 397 ^ Modifier.GetHashCode();
         }
 
         private sealed class CompletedCommand

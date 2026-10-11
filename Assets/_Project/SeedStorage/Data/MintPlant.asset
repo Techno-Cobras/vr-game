@@ -18,4 +18,8 @@ MonoBehaviour:
   harvestItem: {fileID: 11400000, guid: a5aa4fd5bbadc924682f12a123900cfd, type: 2}
   stages:
   - startsAtNormalized: 0
+    representation: {fileID: 11400000, guid: 351d32a772f68e1439538b218a05f28d, type: 2}
+  - startsAtNormalized: 0.5
+    representation: {fileID: 11400000, guid: bda4917ef263ca54e9f6335d3fc82ce1, type: 2}
+  - startsAtNormalized: 1
     representation: {fileID: 11400000, guid: 400bd8a0421f8ab42917130e338b8cd1, type: 2}
