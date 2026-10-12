@@ -7,8 +7,10 @@ using VrGame.DataAssets.Plants;
 using VrGame.Domain.Inventory;
 using VrGame.Domain.Plants;
 using VrGame.Domain.SeedStorage;
+using VrGame.Presentation.Indicators;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.SeedStorage;
+using VrGame.VRInteraction.Watering;
 
 namespace VrGame.Bootstrap
 {
@@ -57,6 +59,18 @@ namespace VrGame.Bootstrap
         [SerializeField]
         private XRSocketInteractor plantingSocket;
 
+        [SerializeField]
+        private WateringReceiver wateringReceiver;
+
+        [SerializeField]
+        private WateringSource wateringSource;
+
+        [SerializeField]
+        private PlantingSlotIndicatorProjectionSource indicatorSource;
+
+        [SerializeField]
+        private WorldSpaceIndicatorPresenter indicatorPresenter;
+
         private PlantGrowthController growthController;
 
         public SeedDispenseCoordinator SeedStorage { get; private set; }
@@ -68,13 +82,18 @@ namespace VrGame.Bootstrap
         public SeedStorageStationController StationController => stationController;
         public SeedPlantingReceiver PlantingReceiver => plantingReceiver;
         public PlantGrowthController GrowthController => growthController;
+        public WateringReceiver WateringReceiver => wateringReceiver;
+        public WateringSource WateringSource => wateringSource;
+        public PlantingSlotIndicatorProjectionSource IndicatorSource => indicatorSource;
+        public WorldSpaceIndicatorPresenter IndicatorPresenter => indicatorPresenter;
 
         private void Awake()
         {
             var view = stationView as ISeedStorageStationView;
             if (itemCatalog == null || plantCatalog == null || materializer == null ||
                 stationController == null || view == null || issuedSeedsRoot == null ||
-                plantingReceiver == null || plantingSocket == null)
+                plantingReceiver == null || plantingSocket == null || wateringReceiver == null ||
+                wateringSource == null || indicatorSource == null || indicatorPresenter == null)
                 throw new InvalidOperationException("Композиция станции саженцев настроена не полностью.");
 
             var runtimeItems = itemCatalog.Build();
@@ -107,24 +126,25 @@ namespace VrGame.Bootstrap
             PlantingSlot = new PlantingSlot(
                 new PlantingSlotId(Guid.NewGuid()),
                 runtimePlants.Plants,
-                new PlantingSink(),
+                indicatorSource,
                 new UnityPlantGrowthRandomSource());
+            indicatorSource.Configure(PlantingSlot);
             SeedPlanting = new PlantSeedCoordinator(PlayerInventory, runtimePlants.Plants, PlantingSlot);
             plantingReceiver.Configure(plantingSocket, SeedPlanting);
             growthController = plantingReceiver.GetComponent<PlantGrowthController>();
             if (growthController == null)
                 throw new InvalidOperationException("Контроллер роста отсутствует на planting slot.");
             growthController.Configure(PlantingSlot, runtimePlants);
+            wateringReceiver.Configure(
+                wateringReceiver.GetComponent<Collider>(),
+                wateringSource,
+                PlantingSlot);
+            indicatorPresenter.Observe(indicatorSource);
         }
 
         private sealed class InventorySink : IInventoryEventSink
         {
             public bool TryPublish(InventoryChanged inventoryChanged) => true;
-        }
-
-        private sealed class PlantingSink : IPlantingSlotEventSink
-        {
-            public bool TryPublish(PlantingSlotChanged plantingSlotChanged) => true;
         }
 
         private sealed class UnityPlantGrowthRandomSource : IPlantGrowthRandomSource

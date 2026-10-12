@@ -11,9 +11,11 @@ using VrGame.Bootstrap;
 using VrGame.Data.Items;
 using VrGame.DataAssets;
 using VrGame.DataAssets.Plants;
+using VrGame.Presentation.Indicators;
 using VrGame.Presentation.SeedStorage;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.SeedStorage;
+using VrGame.VRInteraction.Watering;
 
 namespace VrGame.Editor
 {
@@ -74,12 +76,31 @@ namespace VrGame.Editor
 
             var stationPrefab = CreateStationPrefab();
             var slotPrefab = CreatePlantingSlotPrefab();
+            var wateringCanPrefab = CreateWateringCanPrefab();
             var station = (GameObject)PrefabUtility.InstantiatePrefab(stationPrefab, scene);
             station.name = "Станция саженцев";
             station.transform.SetPositionAndRotation(new Vector3(-1.1f, 1.05f, 1.4f), Quaternion.Euler(0f, 25f, 0f));
             var slot = (GameObject)PrefabUtility.InstantiatePrefab(slotPrefab, scene);
             slot.name = "Гнездо посадки";
             slot.transform.position = new Vector3(.8f, .85f, 1.35f);
+            var wateringCan = (GameObject)PrefabUtility.InstantiatePrefab(wateringCanPrefab, scene);
+            wateringCan.name = "Лейка";
+            wateringCan.transform.SetPositionAndRotation(new Vector3(.15f, 1.05f, 1.15f), Quaternion.Euler(0f, 25f, 0f));
+
+            var presenterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Project/Presentation/Indicators/Assets/WorldSpaceIndicatorPresenter.prefab");
+            if (presenterPrefab == null)
+                throw new InvalidOperationException("Prefab presenter индикаторов не найден.");
+            var presenterObject = (GameObject)PrefabUtility.InstantiatePrefab(presenterPrefab, scene);
+            presenterObject.name = "Индикаторы planting slot";
+            var indicatorPresenter = presenterObject.GetComponent<WorldSpaceIndicatorPresenter>();
+            var xrOrigin = UnityEngine.Object.FindFirstObjectByType<Unity.XR.CoreUtils.XROrigin>();
+            var viewer = xrOrigin == null ? null : xrOrigin.Camera?.transform;
+            if (viewer == null)
+                throw new InvalidOperationException("XR camera для индикатора не найдена.");
+            var presenterSerialized = new SerializedObject(indicatorPresenter);
+            presenterSerialized.FindProperty("viewer").objectReferenceValue = viewer;
+            presenterSerialized.ApplyModifiedPropertiesWithoutUndo();
 
             var issuedRoot = new GameObject("Выданные саженцы");
             issuedRoot.transform.position = new Vector3(-.65f, 1.05f, 1.25f);
@@ -94,6 +115,10 @@ namespace VrGame.Editor
             serialized.FindProperty("issuedSeedsRoot").objectReferenceValue = issuedRoot.transform;
             serialized.FindProperty("plantingReceiver").objectReferenceValue = slot.GetComponent<SeedPlantingReceiver>();
             serialized.FindProperty("plantingSocket").objectReferenceValue = slot.GetComponent<XRSocketInteractor>();
+            serialized.FindProperty("wateringReceiver").objectReferenceValue = slot.GetComponentInChildren<WateringReceiver>(true);
+            serialized.FindProperty("wateringSource").objectReferenceValue = wateringCan.GetComponent<WateringSource>();
+            serialized.FindProperty("indicatorSource").objectReferenceValue = slot.GetComponent<PlantingSlotIndicatorProjectionSource>();
+            serialized.FindProperty("indicatorPresenter").objectReferenceValue = indicatorPresenter;
             var initialStock = serialized.FindProperty("initialStock");
             initialStock.arraySize = 2;
             SetStock(initialStock.GetArrayElementAtIndex(0), "plant.basil", 5);
@@ -173,7 +198,85 @@ namespace VrGame.Editor
             var growthSerialized = new SerializedObject(growthController);
             growthSerialized.FindProperty("visualRoot").objectReferenceValue = visualRoot;
             growthSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var wateringZone = new GameObject("Зона полива");
+            wateringZone.transform.SetParent(root.transform, false);
+            wateringZone.transform.localPosition = new Vector3(0f, .2f, 0f);
+            var wateringZoneCollider = wateringZone.AddComponent<BoxCollider>();
+            wateringZoneCollider.isTrigger = true;
+            wateringZoneCollider.size = new Vector3(.55f, .32f, .55f);
+            var wateringReceiver = wateringZone.AddComponent<WateringReceiver>();
+            var receiverSerialized = new SerializedObject(wateringReceiver);
+            receiverSerialized.FindProperty("triggerZone").objectReferenceValue = wateringZoneCollider;
+            receiverSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var indicatorAnchor = new GameObject("Якорь индикатора полива");
+            indicatorAnchor.transform.SetParent(root.transform, false);
+            indicatorAnchor.transform.localPosition = new Vector3(0f, .65f, 0f);
+            var indicatorTarget = indicatorAnchor.AddComponent<IndicatorTarget>();
+            var indicatorSource = root.AddComponent<PlantingSlotIndicatorProjectionSource>();
+            var sourceSerialized = new SerializedObject(indicatorSource);
+            sourceSerialized.FindProperty("target").objectReferenceValue = indicatorTarget;
+            sourceSerialized.ApplyModifiedPropertiesWithoutUndo();
             var path = PrefabRoot + "/SeedPlantingSlot.prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return prefab;
+        }
+
+        private static GameObject CreateWateringCanPrefab()
+        {
+            var root = new GameObject("Лейка");
+            var rigidbody = root.AddComponent<Rigidbody>();
+            rigidbody.mass = .65f;
+            var grab = root.AddComponent<XRGrabInteractable>();
+
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            body.name = "Корпус";
+            body.transform.SetParent(root.transform, false);
+            body.transform.localScale = new Vector3(.14f, .16f, .14f);
+            body.GetComponent<Renderer>().sharedMaterial = CreateMaterial(
+                PrefabRoot + "/WateringCan.mat",
+                new Color(.16f, .48f, .78f));
+
+            var outletObject = new GameObject("Носик — выход воды");
+            outletObject.transform.SetParent(root.transform, false);
+            outletObject.transform.localPosition = new Vector3(0f, .08f, .28f);
+            outletObject.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            var outletCollider = outletObject.AddComponent<CapsuleCollider>();
+            outletCollider.radius = .045f;
+            outletCollider.height = .22f;
+            var outlet = outletObject.AddComponent<WateringOutlet>();
+
+            var particlesObject = new GameObject("Струя успешного полива");
+            particlesObject.transform.SetParent(outletObject.transform, false);
+            particlesObject.transform.localPosition = new Vector3(0f, .11f, 0f);
+            var particles = particlesObject.AddComponent<ParticleSystem>();
+            var main = particles.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.duration = .35f;
+            main.startLifetime = .3f;
+            main.startSpeed = 1.2f;
+            main.startSize = .035f;
+            main.maxParticles = 24;
+            main.startColor = new Color(.3f, .75f, 1f, .9f);
+            var emission = particles.emission;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 18) });
+
+            var source = root.AddComponent<WateringSource>();
+            var outletSerialized = new SerializedObject(outlet);
+            outletSerialized.FindProperty("source").objectReferenceValue = source;
+            outletSerialized.FindProperty("outletCollider").objectReferenceValue = outletCollider;
+            outletSerialized.ApplyModifiedPropertiesWithoutUndo();
+            var sourceSerialized = new SerializedObject(source);
+            sourceSerialized.FindProperty("interactable").objectReferenceValue = grab;
+            sourceSerialized.FindProperty("outlet").objectReferenceValue = outlet;
+            sourceSerialized.FindProperty("successParticles").objectReferenceValue = particles;
+            sourceSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var path = PrefabRoot + "/WateringCan.prefab";
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
             return prefab;
