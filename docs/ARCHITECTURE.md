@@ -149,6 +149,24 @@ presentation key, prefab catalog и внутренний pool. Низкоуро�
 разные контрастные prefabs; gameplay state и domain event bus presenter не
 создаёт — plant/delivery adapters передают ему восстановимую projection state.
 
+Физический полив реализован внешним XRI-adapter без дополнительного gameplay
+state. `WateringSource` принимает Activate только от того interactor, который в
+этот момент действительно держит `XRGrabInteractable` лейки. Отдельный дочерний
+`WateringOutlet` задаёт единственный допустимый collider носика, а
+`WateringReceiver` учитывает его trigger-контакт и непосредственно перед
+командой повторно проверяет геометрическое пересечение. Корпус лейки, чужие
+предметы, устаревшие контакты, потеря focus/pause и отключённые objects не могут
+вызвать полив. Успешный adapter вызывает только `PlantingSlot.Water`; particles
+и haptic включаются после успешного не-replay результата.
+
+На границе Bootstrap `PlantingSlotIndicatorProjectionSource` одновременно
+является domain event sink и восстановимым источником presentation projection.
+Water indicator видим строго в `NeedsWater`, немедленно скрывается после
+успешного полива и сверяется с авторитетным snapshot при повторном включении.
+Так VRInteraction не зависит от Presentation и циклической assembly-зависимости
+не возникает. Все scene-ссылки на источник, receiver, target, presenter и XR
+camera задаются composition root явно, без runtime search.
+
 ## Зависимости
 
 | Package | Version |
