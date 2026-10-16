@@ -167,6 +167,15 @@ Water indicator видим строго в `NeedsWater`, немедленно с
 не возникает. Все scene-ссылки на источник, receiver, target, presenter и XR
 camera задаются composition root явно, без runtime search.
 
+Рецепты крафта в DATA используют стабильный `RecipeId`, неизменяемый список
+ингредиентов и output `ItemId` с положительными целыми количествами.
+`RecipeCatalog` разрешает все ссылки через общий `ItemCatalog`, проверяет
+категорию `Medicine` у результата, отклоняет дубли и предоставляет lookup по ID.
+Unity `RecipeDefinitionAsset` и `RecipeCatalogAsset` служат авторскими adapters;
+crafting service, inventory mutations и VR UI в них не входят. Два тестовых
+рецепта и лекарства находятся в `Assets/_Project/Crafting/Samples/`.
+Правила авторства и примеры описаны в [CRAFTING_DATA.md](CRAFTING_DATA.md).
+
 ## Зависимости
 
 | Package | Version |
