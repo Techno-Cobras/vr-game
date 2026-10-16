@@ -58,6 +58,15 @@ Directional Light и интерактивный world-space Canvas через XR
 OpenXR loader автоматически инициализируется для Android; включены Meta Quest
 Support и Oculus Touch Controller Profile.
 
+XRI Interaction Layer 31 зарезервирован под `Teleport`. `Run In Background`
+включён для корректного отображения XR при потере focus; `VrBootstrap` отдельно
+отключает игровые actions при pause/focus loss. `Assets/TextMesh Pro/` содержит
+только TMP Essential Resources с исходными GUID и лицензиями, без Examples & Extras.
+`URPProjectSettings.asset` фиксирует версию обработки материалов URP 17.3.0;
+служебные значения освещения, цвета материала лейки и MSAA согласованы с URP.
+Необязательные OpenXR symbols `USE_INPUT_SYSTEM_POSE_CONTROL` и
+`USE_STICK_CONTROL_THUMBSTICKS` не включены.
+
 ## Границы систем
 
 Независимые от движка границы MVP определены в
