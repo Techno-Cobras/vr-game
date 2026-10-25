@@ -1,14 +1,18 @@
 using System;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using VrGame.Data.Fertilizers;
 using VrGame.Data.Plants;
 using VrGame.DataAssets;
+using VrGame.DataAssets.Fertilizers;
 using VrGame.DataAssets.Plants;
+using VrGame.Domain.Fertilizers;
 using VrGame.Domain.Inventory;
 using VrGame.Domain.Plants;
 using VrGame.Domain.SeedStorage;
 using VrGame.Presentation.Indicators;
 using VrGame.VRInteraction.Plants;
+using VrGame.VRInteraction.Fertilizers;
 using VrGame.VRInteraction.SeedStorage;
 using VrGame.VRInteraction.Watering;
 
@@ -29,6 +33,15 @@ namespace VrGame.Bootstrap
             public int Quantity => quantity;
         }
 
+        [Serializable]
+        private struct InitialFertilizerStockEntry
+        {
+            [SerializeField] private FertilizerGrade grade;
+            [SerializeField, Min(1)] private int quantity;
+            public FertilizerGrade Grade => grade;
+            public int Quantity => quantity;
+        }
+
         [SerializeField]
         private ItemCatalogAsset itemCatalog;
 
@@ -36,7 +49,13 @@ namespace VrGame.Bootstrap
         private PlantCatalogAsset plantCatalog;
 
         [SerializeField]
+        private FertilizerCatalogAsset fertilizerCatalog;
+
+        [SerializeField]
         private InitialStockEntry[] initialStock = Array.Empty<InitialStockEntry>();
+
+        [SerializeField]
+        private InitialFertilizerStockEntry[] initialFertilizerStock = Array.Empty<InitialFertilizerStockEntry>();
 
         [SerializeField, Min(1)]
         private int maxDispenseBatch = 5;
@@ -71,7 +90,14 @@ namespace VrGame.Bootstrap
         [SerializeField]
         private WorldSpaceIndicatorPresenter indicatorPresenter;
 
+        [SerializeField] private FertilizerItemMaterializer fertilizerMaterializer;
+        [SerializeField] private FertilizerContainerController fertilizerController;
+        [SerializeField] private MonoBehaviour fertilizerView;
+        [SerializeField] private Transform issuedFertilizersRoot;
+        [SerializeField] private FertilizerApplicationReceiver fertilizerReceiver;
+
         private PlantGrowthController growthController;
+        private IFertilizerApplicationView fertilizerApplicationView;
 
         public SeedDispenseCoordinator SeedStorage { get; private set; }
         public PlantSeedCoordinator SeedPlanting { get; private set; }
@@ -86,18 +112,28 @@ namespace VrGame.Bootstrap
         public WateringSource WateringSource => wateringSource;
         public PlantingSlotIndicatorProjectionSource IndicatorSource => indicatorSource;
         public WorldSpaceIndicatorPresenter IndicatorPresenter => indicatorPresenter;
+        public FertilizerDispenseCoordinator FertilizerStorage { get; private set; }
+        public FertilizerApplicationCoordinator FertilizerApplication { get; private set; }
+        public FertilizerContainerController FertilizerController => fertilizerController;
+        public FertilizerApplicationReceiver FertilizerReceiver => fertilizerReceiver;
 
         private void Awake()
         {
             var view = stationView as ISeedStorageStationView;
-            if (itemCatalog == null || plantCatalog == null || materializer == null ||
+            var fertilizerStationView = fertilizerView as IFertilizerContainerView;
+            fertilizerApplicationView = fertilizerView as IFertilizerApplicationView;
+            if (itemCatalog == null || plantCatalog == null || fertilizerCatalog == null || materializer == null ||
                 stationController == null || view == null || issuedSeedsRoot == null ||
                 plantingReceiver == null || plantingSocket == null || wateringReceiver == null ||
-                wateringSource == null || indicatorSource == null || indicatorPresenter == null)
+                wateringSource == null || indicatorSource == null || indicatorPresenter == null ||
+                fertilizerMaterializer == null || fertilizerController == null || fertilizerStationView == null ||
+                fertilizerApplicationView == null ||
+                issuedFertilizersRoot == null || fertilizerReceiver == null)
                 throw new InvalidOperationException("Композиция станции саженцев настроена не полностью.");
 
             var runtimeItems = itemCatalog.Build();
             var runtimePlants = plantCatalog.Build(runtimeItems);
+            var runtimeFertilizers = fertilizerCatalog.Build(runtimeItems);
             WarehouseInventory = new Inventory(InventoryId.New(), runtimeItems.Items, new InventorySink());
             PlayerInventory = new Inventory(InventoryId.New(), runtimeItems.Items, new InventorySink());
             for (var index = 0; index < initialStock.Length; index++)
@@ -112,6 +148,18 @@ namespace VrGame.Bootstrap
                     new InventoryChangeContext("начальное наполнение станции саженцев", Guid.NewGuid()));
                 if (!result.Succeeded)
                     throw new InvalidOperationException($"Не удалось добавить начальный остаток '{plantId}'.");
+            }
+            for (var index = 0; index < initialFertilizerStock.Length; index++)
+            {
+                var entry = initialFertilizerStock[index];
+                if (entry.Quantity <= 0 || !runtimeFertilizers.TryGet(entry.Grade, out var definition))
+                    throw new InvalidOperationException($"Начальный остаток удобрения #{index + 1} настроен неверно.");
+                var result = WarehouseInventory.Add(
+                    definition.ItemId,
+                    entry.Quantity,
+                    new InventoryChangeContext("начальное наполнение ящика удобрений", Guid.NewGuid()));
+                if (!result.Succeeded)
+                    throw new InvalidOperationException($"Не удалось добавить начальный остаток fertilizer grade '{entry.Grade}'.");
             }
 
             materializer.Configure(runtimeItems, issuedSeedsRoot);
@@ -139,7 +187,34 @@ namespace VrGame.Bootstrap
                 wateringReceiver.GetComponent<Collider>(),
                 wateringSource,
                 PlantingSlot);
+            fertilizerMaterializer.Configure(runtimeItems, issuedFertilizersRoot, CleanupIssuedFertilizer);
+            FertilizerStorage = new FertilizerDispenseCoordinator(
+                WarehouseInventory, PlayerInventory, runtimeFertilizers, fertilizerMaterializer);
+            fertilizerController.Configure(FertilizerStorage, fertilizerStationView);
+            FertilizerApplication = new FertilizerApplicationCoordinator(
+                PlayerInventory, runtimeFertilizers, PlantingSlot);
+            fertilizerReceiver.Configure(fertilizerReceiver.GetComponent<Collider>(), FertilizerApplication);
+            fertilizerReceiver.ApplicationCompleted += fertilizerApplicationView.RenderApplication;
             indicatorPresenter.Observe(indicatorSource);
+        }
+
+        private void OnDestroy()
+        {
+            if (fertilizerReceiver != null && fertilizerApplicationView != null)
+                fertilizerReceiver.ApplicationCompleted -= fertilizerApplicationView.RenderApplication;
+        }
+
+        private void CleanupIssuedFertilizer(VrGame.Data.Items.ItemId itemId)
+        {
+            if (PlayerInventory == null)
+                return;
+
+            var result = PlayerInventory.Remove(
+                itemId,
+                1,
+                new InventoryChangeContext("cleanup физического удобрения", Guid.NewGuid()));
+            if (!result.Succeeded)
+                Debug.LogWarning($"Не удалось согласовать cleanup удобрения '{itemId}': {result.Rejection}.", this);
         }
 
         private sealed class InventorySink : IInventoryEventSink

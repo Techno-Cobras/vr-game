@@ -54,6 +54,39 @@ namespace VrGame.Domain.Plants
                 GetSnapshot());
         }
 
+        internal PlantingSlotRejection TryPrepareCoordinatedFertilizer(
+            PlantGrowthModifier modifier,
+            PlantingSlotChangeContext context,
+            out PreparedFertilizer prepared)
+        {
+            prepared = default;
+            if (!context.IsValid)
+                return PlantingSlotRejection.InvalidContext;
+            var payload = CommandPayload.ForModifier(modifier);
+            var rejection = Validate(PlantingSlotMutationKind.ApplyFertilizer, payload);
+            if (rejection != PlantingSlotRejection.None)
+                return rejection;
+            if (Version == long.MaxValue)
+                return PlantingSlotRejection.ArithmeticOverflow;
+            prepared = new PreparedFertilizer(modifier, Version, context);
+            return PlantingSlotRejection.None;
+        }
+
+        internal PlantingSlotChanged CommitPreparedFertilizer(PreparedFertilizer prepared)
+        {
+            if (Version != prepared.ExpectedVersion)
+                throw new InvalidOperationException("Подготовленное применение удобрения устарело.");
+
+            var before = GetSnapshot();
+            Apply(PlantingSlotMutationKind.ApplyFertilizer, CommandPayload.ForModifier(prepared.Modifier));
+            Version++;
+            return new PlantingSlotChanged(
+                PlantingSlotMutationKind.ApplyFertilizer,
+                prepared.Context,
+                before,
+                GetSnapshot());
+        }
+
         internal bool PublishPrepared(PlantingSlotChanged change)
         {
             try
@@ -82,6 +115,23 @@ namespace VrGame.Domain.Plants
 
             public PlantTypeId PlantTypeId { get; }
             public float WaterRequestThreshold { get; }
+            public long ExpectedVersion { get; }
+            public PlantingSlotChangeContext Context { get; }
+        }
+
+        internal readonly struct PreparedFertilizer
+        {
+            public PreparedFertilizer(
+                PlantGrowthModifier modifier,
+                long expectedVersion,
+                PlantingSlotChangeContext context)
+            {
+                Modifier = modifier;
+                ExpectedVersion = expectedVersion;
+                Context = context;
+            }
+
+            public PlantGrowthModifier Modifier { get; }
             public long ExpectedVersion { get; }
             public PlantingSlotChangeContext Context { get; }
         }
