@@ -9,11 +9,15 @@ using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.UI;
 using VrGame.Bootstrap;
 using VrGame.Data.Items;
+using VrGame.Data.Fertilizers;
 using VrGame.DataAssets;
+using VrGame.DataAssets.Fertilizers;
 using VrGame.DataAssets.Plants;
 using VrGame.Presentation.Indicators;
+using VrGame.Presentation.Fertilizers;
 using VrGame.Presentation.SeedStorage;
 using VrGame.VRInteraction.Plants;
+using VrGame.VRInteraction.Fertilizers;
 using VrGame.VRInteraction.SeedStorage;
 using VrGame.VRInteraction.Watering;
 
@@ -32,6 +36,9 @@ namespace VrGame.Editor
 
             var basilSeedPrefab = CreateItemPrefab("Саженец базилика", PrefabRoot + "/BasilSeed.prefab", new Color(.3f, .8f, .25f));
             var mintSeedPrefab = CreateItemPrefab("Саженец мяты", PrefabRoot + "/MintSeed.prefab", new Color(.2f, .75f, .65f));
+            var cheapFertilizerPrefab = CreateFertilizerPrefab("Обычное удобрение", PrefabRoot + "/CheapFertilizer.prefab", new Color(.65f, .48f, .22f));
+            var mediumFertilizerPrefab = CreateFertilizerPrefab("Улучшенное удобрение", PrefabRoot + "/MediumFertilizer.prefab", new Color(.3f, .55f, .9f));
+            var expensiveFertilizerPrefab = CreateFertilizerPrefab("Премиальное удобрение", PrefabRoot + "/ExpensiveFertilizer.prefab", new Color(.8f, .55f, .12f));
             var basilSproutPrefab = CreatePlantPrefab("Росток базилика", PrefabRoot + "/BasilSprout.prefab", new Color(.35f, .8f, .25f), .35f);
             var basilYoungPrefab = CreatePlantPrefab("Молодой базилик", PrefabRoot + "/BasilYoung.prefab", new Color(.22f, .72f, .2f), .65f);
             var basilPlantPrefab = CreatePlantPrefab("Базилик", PrefabRoot + "/BasilPlant.prefab", new Color(.15f, .65f, .2f), 1f);
@@ -43,13 +50,24 @@ namespace VrGame.Editor
             var mintSeedRepresentation = CreateItemRepresentation("representation.seed.mint", mintSeedPrefab, DataRoot + "/MintSeedRepresentation.asset");
             var basilHarvestRepresentation = CreateItemRepresentation("representation.harvest.basil", basilPlantPrefab, DataRoot + "/BasilHarvestRepresentation.asset");
             var mintHarvestRepresentation = CreateItemRepresentation("representation.harvest.mint", mintPlantPrefab, DataRoot + "/MintHarvestRepresentation.asset");
+            var cheapFertilizerRepresentation = CreateItemRepresentation("representation.fertilizer.cheap", cheapFertilizerPrefab, DataRoot + "/CheapFertilizerRepresentation.asset");
+            var mediumFertilizerRepresentation = CreateItemRepresentation("representation.fertilizer.medium", mediumFertilizerPrefab, DataRoot + "/MediumFertilizerRepresentation.asset");
+            var expensiveFertilizerRepresentation = CreateItemRepresentation("representation.fertilizer.expensive", expensiveFertilizerPrefab, DataRoot + "/ExpensiveFertilizerRepresentation.asset");
 
             var basilSeed = CreateItem("item.seed.basil", "Саженец базилика", ItemCategory.Seed, basilSeedRepresentation, DataRoot + "/BasilSeed.asset");
             var mintSeed = CreateItem("item.seed.mint", "Саженец мяты", ItemCategory.Seed, mintSeedRepresentation, DataRoot + "/MintSeed.asset");
             var basilHarvest = CreateItem("item.harvest.basil", "Урожай базилика", ItemCategory.HarvestedPlant, basilHarvestRepresentation, DataRoot + "/BasilHarvest.asset");
             var mintHarvest = CreateItem("item.harvest.mint", "Урожай мяты", ItemCategory.HarvestedPlant, mintHarvestRepresentation, DataRoot + "/MintHarvest.asset");
+            var cheapFertilizer = CreateItem("item.fertilizer.cheap", "Обычное удобрение", ItemCategory.Fertilizer, cheapFertilizerRepresentation, DataRoot + "/CheapFertilizer.asset");
+            var mediumFertilizer = CreateItem("item.fertilizer.medium", "Улучшенное удобрение", ItemCategory.Fertilizer, mediumFertilizerRepresentation, DataRoot + "/MediumFertilizer.asset");
+            var expensiveFertilizer = CreateItem("item.fertilizer.expensive", "Премиальное удобрение", ItemCategory.Fertilizer, expensiveFertilizerRepresentation, DataRoot + "/ExpensiveFertilizer.asset");
             var itemCatalog = CreateAsset<ItemCatalogAsset>(DataRoot + "/SeedStorageItemCatalog.asset");
-            SetObjectArray(itemCatalog, "definitions", new UnityEngine.Object[] { basilSeed, mintSeed, basilHarvest, mintHarvest });
+            SetObjectArray(itemCatalog, "definitions", new UnityEngine.Object[] { basilSeed, mintSeed, basilHarvest, mintHarvest, cheapFertilizer, mediumFertilizer, expensiveFertilizer });
+            var cheapFertilizerDefinition = CreateFertilizer(FertilizerGrade.Cheap, cheapFertilizer, 1.25f, DataRoot + "/CheapFertilizerDefinition.asset");
+            var mediumFertilizerDefinition = CreateFertilizer(FertilizerGrade.Medium, mediumFertilizer, 1.5f, DataRoot + "/MediumFertilizerDefinition.asset");
+            var expensiveFertilizerDefinition = CreateFertilizer(FertilizerGrade.Expensive, expensiveFertilizer, 2f, DataRoot + "/ExpensiveFertilizerDefinition.asset");
+            var fertilizerCatalog = CreateAsset<FertilizerCatalogAsset>(DataRoot + "/FertilizerCatalog.asset");
+            SetObjectArray(fertilizerCatalog, "definitions", new UnityEngine.Object[] { cheapFertilizerDefinition, mediumFertilizerDefinition, expensiveFertilizerDefinition });
 
             var basilSproutRepresentation = CreatePlantRepresentation("representation.plant.basil.sprout", basilSproutPrefab, DataRoot + "/BasilSproutRepresentation.asset");
             var basilYoungRepresentation = CreatePlantRepresentation("representation.plant.basil.young", basilYoungPrefab, DataRoot + "/BasilYoungRepresentation.asset");
@@ -77,6 +95,7 @@ namespace VrGame.Editor
             var stationPrefab = CreateStationPrefab();
             var slotPrefab = CreatePlantingSlotPrefab();
             var wateringCanPrefab = CreateWateringCanPrefab();
+            var fertilizerContainerPrefab = CreateFertilizerContainerPrefab();
             var station = (GameObject)PrefabUtility.InstantiatePrefab(stationPrefab, scene);
             station.name = "Станция саженцев";
             station.transform.SetPositionAndRotation(new Vector3(-1.1f, 1.05f, 1.4f), Quaternion.Euler(0f, 25f, 0f));
@@ -86,6 +105,9 @@ namespace VrGame.Editor
             var wateringCan = (GameObject)PrefabUtility.InstantiatePrefab(wateringCanPrefab, scene);
             wateringCan.name = "Лейка";
             wateringCan.transform.SetPositionAndRotation(new Vector3(.15f, 1.05f, 1.15f), Quaternion.Euler(0f, 25f, 0f));
+            var fertilizerContainer = (GameObject)PrefabUtility.InstantiatePrefab(fertilizerContainerPrefab, scene);
+            fertilizerContainer.name = "Ящик удобрений";
+            fertilizerContainer.transform.SetPositionAndRotation(new Vector3(-1.1f, .9f, .55f), Quaternion.Euler(0f, 25f, 0f));
 
             var presenterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Project/Presentation/Indicators/Assets/WorldSpaceIndicatorPresenter.prefab");
@@ -104,11 +126,14 @@ namespace VrGame.Editor
 
             var issuedRoot = new GameObject("Выданные саженцы");
             issuedRoot.transform.position = new Vector3(-.65f, 1.05f, 1.25f);
+            var issuedFertilizersRoot = new GameObject("Выданные удобрения");
+            issuedFertilizersRoot.transform.position = new Vector3(-.55f, 1.05f, .65f);
             var compositionObject = new GameObject("Композиция станции саженцев");
             var composition = compositionObject.AddComponent<SeedStorageCompositionRoot>();
             var serialized = new SerializedObject(composition);
             serialized.FindProperty("itemCatalog").objectReferenceValue = itemCatalog;
             serialized.FindProperty("plantCatalog").objectReferenceValue = plantCatalog;
+            serialized.FindProperty("fertilizerCatalog").objectReferenceValue = fertilizerCatalog;
             serialized.FindProperty("materializer").objectReferenceValue = station.GetComponent<SeedBatchMaterializer>();
             serialized.FindProperty("stationController").objectReferenceValue = station.GetComponent<SeedStorageStationController>();
             serialized.FindProperty("stationView").objectReferenceValue = station.GetComponentInChildren<SeedStorageStationTextView>(true);
@@ -119,10 +144,20 @@ namespace VrGame.Editor
             serialized.FindProperty("wateringSource").objectReferenceValue = wateringCan.GetComponent<WateringSource>();
             serialized.FindProperty("indicatorSource").objectReferenceValue = slot.GetComponent<PlantingSlotIndicatorProjectionSource>();
             serialized.FindProperty("indicatorPresenter").objectReferenceValue = indicatorPresenter;
+            serialized.FindProperty("fertilizerMaterializer").objectReferenceValue = fertilizerContainer.GetComponent<FertilizerItemMaterializer>();
+            serialized.FindProperty("fertilizerController").objectReferenceValue = fertilizerContainer.GetComponent<FertilizerContainerController>();
+            serialized.FindProperty("fertilizerView").objectReferenceValue = fertilizerContainer.GetComponentInChildren<FertilizerContainerTextView>(true);
+            serialized.FindProperty("issuedFertilizersRoot").objectReferenceValue = issuedFertilizersRoot.transform;
+            serialized.FindProperty("fertilizerReceiver").objectReferenceValue = slot.GetComponentInChildren<FertilizerApplicationReceiver>(true);
             var initialStock = serialized.FindProperty("initialStock");
             initialStock.arraySize = 2;
             SetStock(initialStock.GetArrayElementAtIndex(0), "plant.basil", 5);
             SetStock(initialStock.GetArrayElementAtIndex(1), "plant.mint", 5);
+            var fertilizerStock = serialized.FindProperty("initialFertilizerStock");
+            fertilizerStock.arraySize = 3;
+            SetFertilizerStock(fertilizerStock.GetArrayElementAtIndex(0), FertilizerGrade.Cheap, 5);
+            SetFertilizerStock(fertilizerStock.GetArrayElementAtIndex(1), FertilizerGrade.Medium, 5);
+            SetFertilizerStock(fertilizerStock.GetArrayElementAtIndex(2), FertilizerGrade.Expensive, 5);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -210,6 +245,17 @@ namespace VrGame.Editor
             receiverSerialized.FindProperty("triggerZone").objectReferenceValue = wateringZoneCollider;
             receiverSerialized.ApplyModifiedPropertiesWithoutUndo();
 
+            var fertilizerZone = new GameObject("Зона применения удобрения");
+            fertilizerZone.transform.SetParent(root.transform, false);
+            fertilizerZone.transform.localPosition = new Vector3(0f, .28f, 0f);
+            var fertilizerCollider = fertilizerZone.AddComponent<SphereCollider>();
+            fertilizerCollider.isTrigger = true;
+            fertilizerCollider.radius = .32f;
+            var fertilizerReceiver = fertilizerZone.AddComponent<FertilizerApplicationReceiver>();
+            var fertilizerReceiverSerialized = new SerializedObject(fertilizerReceiver);
+            fertilizerReceiverSerialized.FindProperty("triggerZone").objectReferenceValue = fertilizerCollider;
+            fertilizerReceiverSerialized.ApplyModifiedPropertiesWithoutUndo();
+
             var indicatorAnchor = new GameObject("Якорь индикатора полива");
             indicatorAnchor.transform.SetParent(root.transform, false);
             indicatorAnchor.transform.localPosition = new Vector3(0f, .65f, 0f);
@@ -282,6 +328,56 @@ namespace VrGame.Editor
             return prefab;
         }
 
+        private static GameObject CreateFertilizerContainerPrefab()
+        {
+            var root = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            root.name = "Ящик удобрений";
+            root.transform.localScale = new Vector3(.65f, .45f, .35f);
+            root.GetComponent<Renderer>().sharedMaterial = CreateMaterial(PrefabRoot + "/FertilizerContainer.mat", new Color(.26f, .18f, .1f));
+            root.AddComponent<FertilizerItemMaterializer>();
+            var controller = root.AddComponent<FertilizerContainerController>();
+            var canvasObject = new GameObject("Экран удобрений", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(TrackedDeviceGraphicRaycaster));
+            canvasObject.transform.SetParent(root.transform, false);
+            canvasObject.transform.localPosition = new Vector3(0f, .62f, 0f);
+            canvasObject.transform.localScale = new Vector3(1f / .65f, 1f / .45f, 1f / .35f);
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var canvasRect = canvasObject.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(520f, 300f);
+            canvasRect.localScale = Vector3.one * .0015f;
+            var stock = CreateText(canvasObject.transform, "Остатки удобрений", new Vector2(0f, 55f), new Vector2(480f, 150f), 24);
+            var status = CreateText(canvasObject.transform, "Статус", new Vector2(0f, -45f), new Vector2(480f, 55f), 21);
+            var view = canvasObject.AddComponent<FertilizerContainerTextView>();
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("stockText").objectReferenceValue = stock;
+            viewSerialized.FindProperty("statusText").objectReferenceValue = status;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+            var previous = CreateButton(canvasObject.transform, "Предыдущий grade", "◀", -130f);
+            var next = CreateButton(canvasObject.transform, "Следующий grade", "▶", 0f);
+            var dispense = CreateButton(canvasObject.transform, "Выдать удобрение", "ВЫДАТЬ", 130f);
+            UnityEventTools.AddPersistentListener(previous.onClick, controller.SelectPreviousGrade);
+            UnityEventTools.AddPersistentListener(next.onClick, controller.SelectNextGrade);
+            UnityEventTools.AddPersistentListener(dispense.onClick, controller.RequestDispenseSelected);
+            var path = PrefabRoot + "/FertilizerContainer.prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return prefab;
+        }
+
+        private static GameObject CreateFertilizerPrefab(string name, string path, Color color)
+        {
+            var root = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            root.name = name;
+            root.transform.localScale = new Vector3(.09f, .07f, .09f);
+            root.GetComponent<Renderer>().sharedMaterial = CreateMaterial(path.Replace(".prefab", ".mat"), color);
+            root.AddComponent<Rigidbody>();
+            root.AddComponent<XRGrabInteractable>();
+            root.AddComponent<FertilizerItemInstance>();
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return prefab;
+        }
+
         private static GameObject CreateItemPrefab(string name, string path, Color color)
         {
             var root = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -344,6 +440,21 @@ namespace VrGame.Editor
             serialized.FindProperty("representation").objectReferenceValue = representation;
             serialized.FindProperty("maxStackSize").intValue = 16;
             serialized.FindProperty("allowsStackRepresentation").boolValue = true;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return asset;
+        }
+
+        private static FertilizerDefinitionAsset CreateFertilizer(
+            FertilizerGrade grade,
+            ItemDefinitionAsset item,
+            float multiplier,
+            string path)
+        {
+            var asset = CreateAsset<FertilizerDefinitionAsset>(path);
+            var serialized = new SerializedObject(asset);
+            serialized.FindProperty("grade").intValue = (int)grade;
+            serialized.FindProperty("item").objectReferenceValue = item;
+            serialized.FindProperty("growthMultiplier").floatValue = multiplier;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return asset;
         }
@@ -435,6 +546,12 @@ namespace VrGame.Editor
         private static void SetStock(SerializedProperty property, string plantTypeId, int quantity)
         {
             property.FindPropertyRelative("plantTypeId").stringValue = plantTypeId;
+            property.FindPropertyRelative("quantity").intValue = quantity;
+        }
+
+        private static void SetFertilizerStock(SerializedProperty property, FertilizerGrade grade, int quantity)
+        {
+            property.FindPropertyRelative("grade").intValue = (int)grade;
             property.FindPropertyRelative("quantity").intValue = quantity;
         }
 
