@@ -87,6 +87,41 @@ namespace VrGame.Domain.Plants
                 GetSnapshot());
         }
 
+        internal PlantingSlotRejection TryPrepareCoordinatedHarvest(
+            PlantingSlotChangeContext context,
+            out PreparedHarvest prepared)
+        {
+            prepared = default;
+            if (!context.IsValid)
+                return PlantingSlotRejection.InvalidContext;
+            var rejection = Validate(PlantingSlotMutationKind.Harvest, CommandPayload.None);
+            if (rejection != PlantingSlotRejection.None)
+                return rejection;
+            if (Version == long.MaxValue)
+                return PlantingSlotRejection.ArithmeticOverflow;
+            prepared = new PreparedHarvest(
+                plantTypeId ?? throw new InvalidOperationException("Ready slot не содержит plant type."),
+                Version,
+                context);
+            return PlantingSlotRejection.None;
+        }
+
+        internal PlantingSlotChanged CommitPreparedHarvest(PreparedHarvest prepared)
+        {
+            if (Version != prepared.ExpectedVersion || state != PlantingSlotState.ReadyToHarvest ||
+                plantTypeId != prepared.PlantTypeId)
+                throw new InvalidOperationException("Подготовленный harvest устарел.");
+
+            var before = GetSnapshot();
+            Apply(PlantingSlotMutationKind.Harvest, CommandPayload.None);
+            Version++;
+            return new PlantingSlotChanged(
+                PlantingSlotMutationKind.Harvest,
+                prepared.Context,
+                before,
+                GetSnapshot());
+        }
+
         internal bool PublishPrepared(PlantingSlotChanged change)
         {
             try
@@ -132,6 +167,23 @@ namespace VrGame.Domain.Plants
             }
 
             public PlantGrowthModifier Modifier { get; }
+            public long ExpectedVersion { get; }
+            public PlantingSlotChangeContext Context { get; }
+        }
+
+        internal readonly struct PreparedHarvest
+        {
+            public PreparedHarvest(
+                PlantTypeId plantTypeId,
+                long expectedVersion,
+                PlantingSlotChangeContext context)
+            {
+                PlantTypeId = plantTypeId;
+                ExpectedVersion = expectedVersion;
+                Context = context;
+            }
+
+            public PlantTypeId PlantTypeId { get; }
             public long ExpectedVersion { get; }
             public PlantingSlotChangeContext Context { get; }
         }

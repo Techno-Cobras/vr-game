@@ -240,6 +240,27 @@ namespace VrGame.Domain.Inventory
             return InventoryRejection.None;
         }
 
+        internal InventoryRejection TryPrepareCoordinatedAdd(
+            ItemId itemId,
+            int quantity,
+            InventoryChangeContext context,
+            out PreparedInventoryAddition prepared)
+        {
+            prepared = default;
+            if (!context.IsValid)
+                return InventoryRejection.InvalidContext;
+            if (quantity <= 0)
+                return InventoryRejection.InvalidQuantity;
+            if (!catalog.TryGet(itemId, out _))
+                return InventoryRejection.UnknownItem;
+            var before = GetStoredQuantity(itemId);
+            if (quantity > int.MaxValue - before || Version == long.MaxValue)
+                return InventoryRejection.ArithmeticOverflow;
+
+            prepared = new PreparedInventoryAddition(itemId, before, before + quantity, Version, context);
+            return InventoryRejection.None;
+        }
+
         internal InventoryChanged CommitPreparedRemove(PreparedInventoryRemoval prepared)
         {
             if (Version != prepared.ExpectedVersion || GetStoredQuantity(prepared.ItemId) != prepared.Before)
@@ -251,6 +272,21 @@ namespace VrGame.Domain.Inventory
                 Id,
                 Version,
                 InventoryMutationKind.Remove,
+                prepared.Context,
+                new[] { new InventoryQuantityChange(prepared.ItemId, prepared.Before, prepared.After) });
+        }
+
+        internal InventoryChanged CommitPreparedAdd(PreparedInventoryAddition prepared)
+        {
+            if (Version != prepared.ExpectedVersion || GetStoredQuantity(prepared.ItemId) != prepared.Before)
+                throw new InvalidOperationException("Подготовленное добавление Inventory устарело.");
+
+            SetQuantity(prepared.ItemId, prepared.After);
+            Version++;
+            return new InventoryChanged(
+                Id,
+                Version,
+                InventoryMutationKind.Add,
                 prepared.Context,
                 new[] { new InventoryQuantityChange(prepared.ItemId, prepared.Before, prepared.After) });
         }
@@ -270,6 +306,29 @@ namespace VrGame.Domain.Inventory
         internal readonly struct PreparedInventoryRemoval
         {
             public PreparedInventoryRemoval(
+                ItemId itemId,
+                int before,
+                int after,
+                long expectedVersion,
+                InventoryChangeContext context)
+            {
+                ItemId = itemId;
+                Before = before;
+                After = after;
+                ExpectedVersion = expectedVersion;
+                Context = context;
+            }
+
+            public ItemId ItemId { get; }
+            public int Before { get; }
+            public int After { get; }
+            public long ExpectedVersion { get; }
+            public InventoryChangeContext Context { get; }
+        }
+
+        internal readonly struct PreparedInventoryAddition
+        {
+            public PreparedInventoryAddition(
                 ItemId itemId,
                 int before,
                 int after,

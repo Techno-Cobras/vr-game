@@ -32,6 +32,12 @@ namespace VrGame.VRInteraction.Plants
         public float StageSurfaceWorldY => visualRoot == null ? 0f : visualRoot.position.y;
         public int PrecreatedStageCount => stageObjects.Count;
 
+        public void RefreshVisual()
+        {
+            if (slot != null)
+                RenderStage();
+        }
+
         public void Configure(
             PlantingSlot plantingSlot,
             RuntimePlantCatalog runtimeCatalog,

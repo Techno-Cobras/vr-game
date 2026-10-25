@@ -14,7 +14,8 @@ namespace VrGame.Bootstrap
         private IndicatorTarget target;
 
         private PlantingSlot slot;
-        private IndicatorKey key;
+        private IndicatorKey waterKey;
+        private IndicatorKey readyKey;
 
         public event Action<IndicatorProjection> ProjectionChanged;
 
@@ -25,7 +26,8 @@ namespace VrGame.Bootstrap
             slot = plantingSlot ?? throw new ArgumentNullException(nameof(plantingSlot));
             if (target == null)
                 throw new InvalidOperationException("Цель индикатора полива не настроена.");
-            key = new IndicatorKey($"planting-slot:{slot.Id.Value:D}:water");
+            waterKey = new IndicatorKey($"planting-slot:{slot.Id.Value:D}:water");
+            readyKey = new IndicatorKey($"planting-slot:{slot.Id.Value:D}:ready");
             PublishCurrent();
         }
 
@@ -34,7 +36,10 @@ namespace VrGame.Bootstrap
             if (plantingSlotChanged == null || slot == null || plantingSlotChanged.After.SlotId != slot.Id)
                 return false;
 
-            Publish(CreateProjection(plantingSlotChanged.After));
+            Publish(CreateWaterProjection(plantingSlotChanged.After));
+            if ((plantingSlotChanged.Before.State == PlantingSlotState.ReadyToHarvest) !=
+                (plantingSlotChanged.After.State == PlantingSlotState.ReadyToHarvest))
+                Publish(CreateReadyProjection(plantingSlotChanged.After));
             return true;
         }
 
@@ -42,7 +47,8 @@ namespace VrGame.Bootstrap
         {
             if (slot == null)
                 return Array.Empty<IndicatorProjection>();
-            return new[] { CreateProjection(slot.GetSnapshot()) };
+            var snapshot = slot.GetSnapshot();
+            return new[] { CreateWaterProjection(snapshot), CreateReadyProjection(snapshot) };
         }
 
         private void OnEnable() => PublishCurrent();
@@ -51,23 +57,37 @@ namespace VrGame.Bootstrap
 
         private void OnDestroy() => PublishHidden();
 
-        private IndicatorProjection CreateProjection(PlantingSlotSnapshot snapshot) =>
+        private IndicatorProjection CreateWaterProjection(PlantingSlotSnapshot snapshot) =>
             new IndicatorProjection(
-                key,
+                waterKey,
                 IndicatorVariant.Water,
                 target,
                 isActiveAndEnabled && snapshot.State == PlantingSlotState.NeedsWater);
 
+        private IndicatorProjection CreateReadyProjection(PlantingSlotSnapshot snapshot) =>
+            new IndicatorProjection(
+                readyKey,
+                IndicatorVariant.ReadyToHarvest,
+                target,
+                isActiveAndEnabled && snapshot.State == PlantingSlotState.ReadyToHarvest);
+
         private void PublishCurrent()
         {
             if (slot != null)
-                Publish(CreateProjection(slot.GetSnapshot()));
+            {
+                var snapshot = slot.GetSnapshot();
+                Publish(CreateWaterProjection(snapshot));
+                Publish(CreateReadyProjection(snapshot));
+            }
         }
 
         private void PublishHidden()
         {
             if (slot != null)
-                Publish(new IndicatorProjection(key, IndicatorVariant.Water, target, false));
+            {
+                Publish(new IndicatorProjection(waterKey, IndicatorVariant.Water, target, false));
+                Publish(new IndicatorProjection(readyKey, IndicatorVariant.ReadyToHarvest, target, false));
+            }
         }
 
         private void Publish(IndicatorProjection projection)

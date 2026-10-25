@@ -21,7 +21,8 @@ namespace VrGame.Data.Plants
         UnorderedStages,
         MissingRepresentation,
         ConflictingRepresentation,
-        InvalidWaterRequestRange
+        InvalidWaterRequestRange,
+        InvalidHarvestQuantity
     }
 
     public sealed class PlantDataValidationException : ArgumentException
