@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using VrGame.Data.Fertilizers;
 using VrGame.Data.Plants;
@@ -7,12 +8,14 @@ using VrGame.DataAssets;
 using VrGame.DataAssets.Fertilizers;
 using VrGame.DataAssets.Plants;
 using VrGame.Domain.Fertilizers;
+using VrGame.Domain.Harvesting;
 using VrGame.Domain.Inventory;
 using VrGame.Domain.Plants;
 using VrGame.Domain.SeedStorage;
 using VrGame.Presentation.Indicators;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.Fertilizers;
+using VrGame.VRInteraction.Harvesting;
 using VrGame.VRInteraction.SeedStorage;
 using VrGame.VRInteraction.Watering;
 
@@ -95,6 +98,8 @@ namespace VrGame.Bootstrap
         [SerializeField] private MonoBehaviour fertilizerView;
         [SerializeField] private Transform issuedFertilizersRoot;
         [SerializeField] private FertilizerApplicationReceiver fertilizerReceiver;
+        [SerializeField] private XRSimpleInteractable harvestInteractable;
+        [SerializeField] private HarvestInteractionController harvestController;
 
         private PlantGrowthController growthController;
         private IFertilizerApplicationView fertilizerApplicationView;
@@ -116,6 +121,8 @@ namespace VrGame.Bootstrap
         public FertilizerApplicationCoordinator FertilizerApplication { get; private set; }
         public FertilizerContainerController FertilizerController => fertilizerController;
         public FertilizerApplicationReceiver FertilizerReceiver => fertilizerReceiver;
+        public HarvestCoordinator Harvesting { get; private set; }
+        public HarvestInteractionController HarvestController => harvestController;
 
         private void Awake()
         {
@@ -128,7 +135,8 @@ namespace VrGame.Bootstrap
                 wateringSource == null || indicatorSource == null || indicatorPresenter == null ||
                 fertilizerMaterializer == null || fertilizerController == null || fertilizerStationView == null ||
                 fertilizerApplicationView == null ||
-                issuedFertilizersRoot == null || fertilizerReceiver == null)
+                issuedFertilizersRoot == null || fertilizerReceiver == null ||
+                harvestInteractable == null || harvestController == null)
                 throw new InvalidOperationException("Композиция станции саженцев настроена не полностью.");
 
             var runtimeItems = itemCatalog.Build();
@@ -183,6 +191,8 @@ namespace VrGame.Bootstrap
             if (growthController == null)
                 throw new InvalidOperationException("Контроллер роста отсутствует на planting slot.");
             growthController.Configure(PlantingSlot, runtimePlants);
+            Harvesting = new HarvestCoordinator(PlayerInventory, runtimePlants.Plants, PlantingSlot);
+            harvestController.Configure(harvestInteractable, Harvesting, growthController);
             wateringReceiver.Configure(
                 wateringReceiver.GetComponent<Collider>(),
                 wateringSource,

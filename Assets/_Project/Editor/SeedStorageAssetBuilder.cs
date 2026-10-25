@@ -18,6 +18,7 @@ using VrGame.Presentation.Fertilizers;
 using VrGame.Presentation.SeedStorage;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.Fertilizers;
+using VrGame.VRInteraction.Harvesting;
 using VrGame.VRInteraction.SeedStorage;
 using VrGame.VRInteraction.Watering;
 
@@ -80,6 +81,7 @@ namespace VrGame.Editor
                 60f,
                 basilSeed,
                 basilHarvest,
+                3,
                 new[] { basilSproutRepresentation, basilYoungRepresentation, basilPlantRepresentation },
                 DataRoot + "/BasilPlant.asset");
             var mintPlant = CreatePlant(
@@ -87,6 +89,7 @@ namespace VrGame.Editor
                 75f,
                 mintSeed,
                 mintHarvest,
+                2,
                 new[] { mintSproutRepresentation, mintYoungRepresentation, mintPlantRepresentation },
                 DataRoot + "/MintPlant.asset");
             var plantCatalog = CreateAsset<PlantCatalogAsset>(DataRoot + "/SeedStoragePlantCatalog.asset");
@@ -149,6 +152,8 @@ namespace VrGame.Editor
             serialized.FindProperty("fertilizerView").objectReferenceValue = fertilizerContainer.GetComponentInChildren<FertilizerContainerTextView>(true);
             serialized.FindProperty("issuedFertilizersRoot").objectReferenceValue = issuedFertilizersRoot.transform;
             serialized.FindProperty("fertilizerReceiver").objectReferenceValue = slot.GetComponentInChildren<FertilizerApplicationReceiver>(true);
+            serialized.FindProperty("harvestInteractable").objectReferenceValue = slot.GetComponentInChildren<XRSimpleInteractable>(true);
+            serialized.FindProperty("harvestController").objectReferenceValue = slot.GetComponentInChildren<HarvestInteractionController>(true);
             var initialStock = serialized.FindProperty("initialStock");
             initialStock.arraySize = 2;
             SetStock(initialStock.GetArrayElementAtIndex(0), "plant.basil", 5);
@@ -256,6 +261,28 @@ namespace VrGame.Editor
             fertilizerReceiverSerialized.FindProperty("triggerZone").objectReferenceValue = fertilizerCollider;
             fertilizerReceiverSerialized.ApplyModifiedPropertiesWithoutUndo();
 
+            var harvestZone = new GameObject("Зона сбора урожая");
+            harvestZone.transform.SetParent(root.transform, false);
+            harvestZone.transform.localPosition = new Vector3(0f, .42f, 0f);
+            var harvestCollider = harvestZone.AddComponent<SphereCollider>();
+            harvestCollider.isTrigger = true;
+            harvestCollider.radius = .28f;
+            var harvestInteractable = harvestZone.AddComponent<XRSimpleInteractable>();
+            var harvestController = harvestZone.AddComponent<HarvestInteractionController>();
+            var successParticles = CreateFeedbackParticles(
+                harvestZone.transform,
+                "Успешный сбор",
+                new Color(.3f, 1f, .35f, .95f));
+            var rejectionParticles = CreateFeedbackParticles(
+                harvestZone.transform,
+                "Сбор отклонён",
+                new Color(1f, .25f, .2f, .95f));
+            var harvestSerialized = new SerializedObject(harvestController);
+            harvestSerialized.FindProperty("interactable").objectReferenceValue = harvestInteractable;
+            harvestSerialized.FindProperty("successParticles").objectReferenceValue = successParticles;
+            harvestSerialized.FindProperty("rejectionParticles").objectReferenceValue = rejectionParticles;
+            harvestSerialized.ApplyModifiedPropertiesWithoutUndo();
+
             var indicatorAnchor = new GameObject("Якорь индикатора полива");
             indicatorAnchor.transform.SetParent(root.transform, false);
             indicatorAnchor.transform.localPosition = new Vector3(0f, .65f, 0f);
@@ -326,6 +353,29 @@ namespace VrGame.Editor
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
             return prefab;
+        }
+
+        private static ParticleSystem CreateFeedbackParticles(
+            Transform parent,
+            string name,
+            Color color)
+        {
+            var particlesObject = new GameObject(name);
+            particlesObject.transform.SetParent(parent, false);
+            var particles = particlesObject.AddComponent<ParticleSystem>();
+            var main = particles.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.duration = .3f;
+            main.startLifetime = .35f;
+            main.startSpeed = .8f;
+            main.startSize = .045f;
+            main.startColor = color;
+            main.maxParticles = 18;
+            var emission = particles.emission;
+            emission.rateOverTime = 0f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 12) });
+            return particles;
         }
 
         private static GameObject CreateFertilizerContainerPrefab()
@@ -464,6 +514,7 @@ namespace VrGame.Editor
             float duration,
             ItemDefinitionAsset seed,
             ItemDefinitionAsset harvest,
+            int harvestQuantity,
             PlantRepresentationAsset[] representations,
             string path)
         {
@@ -475,6 +526,7 @@ namespace VrGame.Editor
             serialized.FindProperty("waterRequestMaxNormalized").floatValue = .7f;
             serialized.FindProperty("seedItem").objectReferenceValue = seed;
             serialized.FindProperty("harvestItem").objectReferenceValue = harvest;
+            serialized.FindProperty("harvestQuantity").intValue = harvestQuantity;
             var stages = serialized.FindProperty("stages");
             stages.arraySize = representations.Length;
             for (var index = 0; index < representations.Length; index++)

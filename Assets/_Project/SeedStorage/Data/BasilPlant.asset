@@ -18,6 +18,7 @@ MonoBehaviour:
   waterRequestMaxNormalized: 0.7
   seedItem: {fileID: 11400000, guid: 6a3a03e6852f6b04aa22feb7574740b5, type: 2}
   harvestItem: {fileID: 11400000, guid: 80d71014cbf7b3149b4438f55183c517, type: 2}
+  harvestQuantity: 3
   stages:
   - startsAtNormalized: 0
     representation: {fileID: 11400000, guid: 036c792036566bf49a1cc5f28b4d102b, type: 2}

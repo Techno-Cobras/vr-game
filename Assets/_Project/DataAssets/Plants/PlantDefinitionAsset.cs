@@ -26,6 +26,9 @@ namespace VrGame.DataAssets.Plants
         [SerializeField]
         private ItemDefinitionAsset harvestItem;
 
+        [SerializeField, Min(1)]
+        private int harvestQuantity = 1;
+
         [SerializeField]
         private PlantStageAsset[] stages = Array.Empty<PlantStageAsset>();
 
@@ -59,7 +62,8 @@ namespace VrGame.DataAssets.Plants
                 seedItem.GetId(),
                 harvestItem.GetId(),
                 new WaterRequestRange(waterRequestMinNormalized, waterRequestMaxNormalized),
-                stageDefinitions);
+                stageDefinitions,
+                harvestQuantity);
         }
     }
 }
