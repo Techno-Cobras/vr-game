@@ -2,17 +2,21 @@ using System;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using VrGame.Data.Crafting;
 using VrGame.Data.Fertilizers;
 using VrGame.Data.Plants;
 using VrGame.DataAssets;
+using VrGame.DataAssets.Crafting;
 using VrGame.DataAssets.Fertilizers;
 using VrGame.DataAssets.Plants;
 using VrGame.Domain.Fertilizers;
+using VrGame.Domain.Crafting;
 using VrGame.Domain.Harvesting;
 using VrGame.Domain.Inventory;
 using VrGame.Domain.Plants;
 using VrGame.Domain.SeedStorage;
 using VrGame.Presentation.Indicators;
+using VrGame.Presentation.Crafting;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.Fertilizers;
 using VrGame.VRInteraction.Harvesting;
@@ -100,9 +104,14 @@ namespace VrGame.Bootstrap
         [SerializeField] private FertilizerApplicationReceiver fertilizerReceiver;
         [SerializeField] private XRSimpleInteractable harvestInteractable;
         [SerializeField] private HarvestInteractionController harvestController;
+        [SerializeField] private RecipeCatalogAsset recipeCatalog;
+        [SerializeField] private CraftingTableController craftingController;
+        [SerializeField] private MonoBehaviour craftingView;
 
         private PlantGrowthController growthController;
         private IFertilizerApplicationView fertilizerApplicationView;
+        private InventoryEventRelay playerInventoryEvents;
+        private CraftingEventRelay craftingEvents;
 
         public SeedDispenseCoordinator SeedStorage { get; private set; }
         public PlantSeedCoordinator SeedPlanting { get; private set; }
@@ -123,12 +132,16 @@ namespace VrGame.Bootstrap
         public FertilizerApplicationReceiver FertilizerReceiver => fertilizerReceiver;
         public HarvestCoordinator Harvesting { get; private set; }
         public HarvestInteractionController HarvestController => harvestController;
+        public RecipeCatalog Recipes { get; private set; }
+        public CraftingService Crafting { get; private set; }
+        public CraftingTableController CraftingController => craftingController;
 
         private void Awake()
         {
             var view = stationView as ISeedStorageStationView;
             var fertilizerStationView = fertilizerView as IFertilizerContainerView;
             fertilizerApplicationView = fertilizerView as IFertilizerApplicationView;
+            var craftingTableView = craftingView as ICraftingTableView;
             if (itemCatalog == null || plantCatalog == null || fertilizerCatalog == null || materializer == null ||
                 stationController == null || view == null || issuedSeedsRoot == null ||
                 plantingReceiver == null || plantingSocket == null || wateringReceiver == null ||
@@ -136,14 +149,18 @@ namespace VrGame.Bootstrap
                 fertilizerMaterializer == null || fertilizerController == null || fertilizerStationView == null ||
                 fertilizerApplicationView == null ||
                 issuedFertilizersRoot == null || fertilizerReceiver == null ||
-                harvestInteractable == null || harvestController == null)
+                harvestInteractable == null || harvestController == null ||
+                recipeCatalog == null || craftingController == null || craftingTableView == null)
                 throw new InvalidOperationException("Композиция станции саженцев настроена не полностью.");
 
             var runtimeItems = itemCatalog.Build();
             var runtimePlants = plantCatalog.Build(runtimeItems);
             var runtimeFertilizers = fertilizerCatalog.Build(runtimeItems);
+            Recipes = recipeCatalog.Build(runtimeItems);
+            playerInventoryEvents = new InventoryEventRelay();
+            craftingEvents = new CraftingEventRelay();
             WarehouseInventory = new Inventory(InventoryId.New(), runtimeItems.Items, new InventorySink());
-            PlayerInventory = new Inventory(InventoryId.New(), runtimeItems.Items, new InventorySink());
+            PlayerInventory = new Inventory(InventoryId.New(), runtimeItems.Items, playerInventoryEvents);
             for (var index = 0; index < initialStock.Length; index++)
             {
                 var entry = initialStock[index];
@@ -205,6 +222,14 @@ namespace VrGame.Bootstrap
                 PlayerInventory, runtimeFertilizers, PlantingSlot);
             fertilizerReceiver.Configure(fertilizerReceiver.GetComponent<Collider>(), FertilizerApplication);
             fertilizerReceiver.ApplicationCompleted += fertilizerApplicationView.RenderApplication;
+            Crafting = new CraftingService(PlayerInventory, Recipes, craftingEvents);
+            craftingController.Configure(
+                Crafting,
+                Recipes,
+                runtimeItems.Items,
+                PlayerInventory,
+                playerInventoryEvents,
+                craftingTableView);
             indicatorPresenter.Observe(indicatorSource);
         }
 

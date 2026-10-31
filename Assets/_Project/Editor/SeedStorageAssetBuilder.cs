@@ -11,9 +11,11 @@ using VrGame.Bootstrap;
 using VrGame.Data.Items;
 using VrGame.Data.Fertilizers;
 using VrGame.DataAssets;
+using VrGame.DataAssets.Crafting;
 using VrGame.DataAssets.Fertilizers;
 using VrGame.DataAssets.Plants;
 using VrGame.Presentation.Indicators;
+using VrGame.Presentation.Crafting;
 using VrGame.Presentation.Fertilizers;
 using VrGame.Presentation.SeedStorage;
 using VrGame.VRInteraction.Plants;
@@ -62,8 +64,19 @@ namespace VrGame.Editor
             var cheapFertilizer = CreateItem("item.fertilizer.cheap", "Обычное удобрение", ItemCategory.Fertilizer, cheapFertilizerRepresentation, DataRoot + "/CheapFertilizer.asset");
             var mediumFertilizer = CreateItem("item.fertilizer.medium", "Улучшенное удобрение", ItemCategory.Fertilizer, mediumFertilizerRepresentation, DataRoot + "/MediumFertilizer.asset");
             var expensiveFertilizer = CreateItem("item.fertilizer.expensive", "Премиальное удобрение", ItemCategory.Fertilizer, expensiveFertilizerRepresentation, DataRoot + "/ExpensiveFertilizer.asset");
+            var basilMedicine = LoadRequiredAsset<ItemDefinitionAsset>(
+                "Assets/_Project/Crafting/Samples/BasilMedicine.asset");
+            var herbalMedicine = LoadRequiredAsset<ItemDefinitionAsset>(
+                "Assets/_Project/Crafting/Samples/HerbalMedicine.asset");
+            var recipeCatalog = LoadRequiredAsset<RecipeCatalogAsset>(
+                "Assets/_Project/Crafting/Samples/RecipeCatalog.asset");
             var itemCatalog = CreateAsset<ItemCatalogAsset>(DataRoot + "/SeedStorageItemCatalog.asset");
-            SetObjectArray(itemCatalog, "definitions", new UnityEngine.Object[] { basilSeed, mintSeed, basilHarvest, mintHarvest, cheapFertilizer, mediumFertilizer, expensiveFertilizer });
+            SetObjectArray(itemCatalog, "definitions", new UnityEngine.Object[]
+            {
+                basilSeed, mintSeed, basilHarvest, mintHarvest,
+                cheapFertilizer, mediumFertilizer, expensiveFertilizer,
+                basilMedicine, herbalMedicine
+            });
             var cheapFertilizerDefinition = CreateFertilizer(FertilizerGrade.Cheap, cheapFertilizer, 1.25f, DataRoot + "/CheapFertilizerDefinition.asset");
             var mediumFertilizerDefinition = CreateFertilizer(FertilizerGrade.Medium, mediumFertilizer, 1.5f, DataRoot + "/MediumFertilizerDefinition.asset");
             var expensiveFertilizerDefinition = CreateFertilizer(FertilizerGrade.Expensive, expensiveFertilizer, 2f, DataRoot + "/ExpensiveFertilizerDefinition.asset");
@@ -99,6 +112,7 @@ namespace VrGame.Editor
             var slotPrefab = CreatePlantingSlotPrefab();
             var wateringCanPrefab = CreateWateringCanPrefab();
             var fertilizerContainerPrefab = CreateFertilizerContainerPrefab();
+            var craftingTablePrefab = CreateCraftingTablePrefab();
             var station = (GameObject)PrefabUtility.InstantiatePrefab(stationPrefab, scene);
             station.name = "Станция саженцев";
             station.transform.SetPositionAndRotation(new Vector3(-1.1f, 1.05f, 1.4f), Quaternion.Euler(0f, 25f, 0f));
@@ -111,6 +125,9 @@ namespace VrGame.Editor
             var fertilizerContainer = (GameObject)PrefabUtility.InstantiatePrefab(fertilizerContainerPrefab, scene);
             fertilizerContainer.name = "Ящик удобрений";
             fertilizerContainer.transform.SetPositionAndRotation(new Vector3(-1.1f, .9f, .55f), Quaternion.Euler(0f, 25f, 0f));
+            var craftingTable = (GameObject)PrefabUtility.InstantiatePrefab(craftingTablePrefab, scene);
+            craftingTable.name = "Crafting Table";
+            craftingTable.transform.SetPositionAndRotation(new Vector3(1.15f, .9f, .45f), Quaternion.Euler(0f, -25f, 0f));
 
             var presenterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Project/Presentation/Indicators/Assets/WorldSpaceIndicatorPresenter.prefab");
@@ -154,6 +171,9 @@ namespace VrGame.Editor
             serialized.FindProperty("fertilizerReceiver").objectReferenceValue = slot.GetComponentInChildren<FertilizerApplicationReceiver>(true);
             serialized.FindProperty("harvestInteractable").objectReferenceValue = slot.GetComponentInChildren<XRSimpleInteractable>(true);
             serialized.FindProperty("harvestController").objectReferenceValue = slot.GetComponentInChildren<HarvestInteractionController>(true);
+            serialized.FindProperty("recipeCatalog").objectReferenceValue = recipeCatalog;
+            serialized.FindProperty("craftingController").objectReferenceValue = craftingTable.GetComponent<CraftingTableController>();
+            serialized.FindProperty("craftingView").objectReferenceValue = craftingTable.GetComponentInChildren<CraftingTableTextView>(true);
             var initialStock = serialized.FindProperty("initialStock");
             initialStock.arraySize = 2;
             SetStock(initialStock.GetArrayElementAtIndex(0), "plant.basil", 5);
@@ -210,6 +230,91 @@ namespace VrGame.Editor
             UnityEventTools.AddPersistentListener(dispense.onClick, controller.RequestDispenseSelected);
 
             var path = PrefabRoot + "/SeedStorageStation.prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return prefab;
+        }
+
+        private static GameObject CreateCraftingTablePrefab()
+        {
+            var root = new GameObject("Crafting Table");
+            var controller = root.AddComponent<CraftingTableController>();
+
+            var table = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            table.name = "Стол";
+            table.transform.SetParent(root.transform, false);
+            table.transform.localPosition = new Vector3(0f, -.22f, 0f);
+            table.transform.localScale = new Vector3(.85f, .08f, .55f);
+            table.GetComponent<Renderer>().sharedMaterial = CreateMaterial(
+                PrefabRoot + "/CraftingTable.mat",
+                new Color(.23f, .14f, .08f));
+
+            var canvasObject = new GameObject(
+                "Экран Crafting Table",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(TrackedDeviceGraphicRaycaster));
+            canvasObject.transform.SetParent(root.transform, false);
+            canvasObject.transform.localPosition = new Vector3(0f, .14f, 0f);
+            canvasObject.transform.localRotation = Quaternion.Euler(28f, 0f, 0f);
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var canvasRect = canvasObject.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(720f, 500f);
+            canvasRect.localScale = Vector3.one * .00125f;
+
+            var recipes = CreateText(
+                canvasObject.transform,
+                "Список рецептов",
+                new Vector2(-190f, 90f),
+                new Vector2(300f, 250f),
+                25);
+            recipes.alignment = TextAnchor.UpperLeft;
+            var selection = CreateText(
+                canvasObject.transform,
+                "Выбранный рецепт",
+                new Vector2(165f, 135f),
+                new Vector2(350f, 145f),
+                24);
+            var requirements = CreateText(
+                canvasObject.transform,
+                "Ингредиенты",
+                new Vector2(165f, -10f),
+                new Vector2(350f, 150f),
+                22);
+            requirements.alignment = TextAnchor.UpperLeft;
+            var status = CreateText(
+                canvasObject.transform,
+                "Результат",
+                new Vector2(0f, -142f),
+                new Vector2(650f, 60f),
+                23);
+
+            var previous = CreateButton(canvasObject.transform, "Предыдущий рецепт", "◀", -220f);
+            var next = CreateButton(canvasObject.transform, "Следующий рецепт", "▶", -105f);
+            var craft = CreateButton(canvasObject.transform, "Создать лекарство", "СОЗДАТЬ", 145f);
+            SetButtonLayout(previous, new Vector2(-220f, -210f), new Vector2(95f, 62f));
+            SetButtonLayout(next, new Vector2(-105f, -210f), new Vector2(95f, 62f));
+            SetButtonLayout(craft, new Vector2(145f, -210f), new Vector2(230f, 62f));
+
+            var view = canvasObject.AddComponent<CraftingTableTextView>();
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("recipesText").objectReferenceValue = recipes;
+            viewSerialized.FindProperty("selectionText").objectReferenceValue = selection;
+            viewSerialized.FindProperty("requirementsText").objectReferenceValue = requirements;
+            viewSerialized.FindProperty("statusText").objectReferenceValue = status;
+            viewSerialized.FindProperty("confirmButton").objectReferenceValue = craft;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var controllerSerialized = new SerializedObject(controller);
+            controllerSerialized.FindProperty("viewBehaviour").objectReferenceValue = view;
+            controllerSerialized.ApplyModifiedPropertiesWithoutUndo();
+            UnityEventTools.AddPersistentListener(previous.onClick, controller.SelectPreviousRecipe);
+            UnityEventTools.AddPersistentListener(next.onClick, controller.SelectNextRecipe);
+            UnityEventTools.AddPersistentListener(craft.onClick, controller.RequestCraftSelected);
+
+            var path = PrefabRoot + "/CraftingTable.prefab";
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
             return prefab;
@@ -565,6 +670,24 @@ namespace VrGame.Editor
             var text = CreateText(gameObject.transform, "Надпись", Vector2.zero, rect.sizeDelta, 18);
             text.text = label;
             return gameObject.GetComponent<Button>();
+        }
+
+        private static void SetButtonLayout(Button button, Vector2 position, Vector2 size)
+        {
+            var rect = (RectTransform)button.transform;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            var label = button.GetComponentInChildren<Text>(true);
+            if (label != null)
+                ((RectTransform)label.transform).sizeDelta = size;
+        }
+
+        private static T LoadRequiredAsset<T>(string path) where T : UnityEngine.Object
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset == null)
+                throw new InvalidOperationException($"Обязательный asset '{path}' не найден.");
+            return asset;
         }
 
         private static T CreateAsset<T>(string path) where T : ScriptableObject
