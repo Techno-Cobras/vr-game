@@ -185,6 +185,16 @@ crafting service, inventory mutations и VR UI в них не входят. Дв
 рецепта и лекарства находятся в `Assets/_Project/Crafting/Samples/`.
 Правила авторства и примеры описаны в [CRAFTING_DATA.md](CRAFTING_DATA.md).
 
+`CraftingService` в DOMAIN координирует один атомарный transform того же
+`Inventory`: сначала проверяет полный набор ингредиентов и возможность добавить
+настроенный medicine output, затем одной фиксацией списывает inputs и добавляет
+output. Любой отказ оставляет quantities и версию без изменений; успех повышает
+версию ровно один раз и публикует один `InventoryChanged` и один
+`CraftCompleted`. Команды идемпотентны в пределах сессии по `CommandId`:
+совпадающий повтор возвращает исходный result без второй mutation или события,
+а изменившиеся recipe/reason/correlation ID дают конфликт. Recipe UI и XRI
+adapters только формируют намерение крафта и не участвуют в transaction state.
+
 ## Зависимости
 
 | Package | Version |
