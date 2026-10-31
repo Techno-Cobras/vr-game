@@ -195,6 +195,18 @@ output. Любой отказ оставляет quantities и версию бе
 а изменившиеся recipe/reason/correlation ID дают конфликт. Recipe UI и XRI
 adapters только формируют намерение крафта и не участвуют в transaction state.
 
+World-space `CraftingTableController` в PRESENTATION строит read model только из
+`RecipeCatalog` и авторитетного snapshot общего `PlayerInventory`. Он показывает
+все рецепты в стабильном порядке, точные required/available/missing quantities и
+medicine output, а затем передаёт одно подтверждённое намерение в
+`CraftingService`. Нехватка блокирует команду до DOMAIN, `InventoryEventRelay`
+пересчитывает UI после любых внешних inventory mutations, а same-frame intent и
+submit guard исключают double-craft от повторных UGUI/XRI callbacks. View не
+изменяет Inventory, не использует polling и не хранит отдельную копию gameplay
+state. Recipe catalog, controller, view и тот же Player Inventory связываются
+явно в `SeedStorageCompositionRoot`; второй inventory или runtime scene search
+не создаются.
+
 ## Зависимости
 
 | Package | Version |
