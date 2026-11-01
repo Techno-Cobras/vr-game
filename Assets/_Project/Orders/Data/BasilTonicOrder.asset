@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d8bb165a48344f09659baa2437eeedd, type: 3}
+  m_Name: BasilTonicOrder
+  m_EditorClassIdentifier: VrGame.DataAssets::VrGame.DataAssets.Orders.OrderTemplateDefinitionAsset
+  id: order-template.basil-tonic
+  displayName: "Заказ на настой базилика"
+  medicineItem: {fileID: 11400000, guid: 2426c5d71cd3fc7489ea7d294d05b454, type: 2}
+  quantity: 1
+  reward: 25
