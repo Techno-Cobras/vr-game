@@ -207,6 +207,19 @@ state. Recipe catalog, controller, view и тот же Player Inventory связ
 явно в `SeedStorageCompositionRoot`; второй inventory или runtime scene search
 не создаются.
 
+Шаблоны заказов в DATA задают стабильный `OrderTemplateId`, medicine item,
+положительные quantity/reward и проверяются через общий `ItemCatalog`.
+`OrderService` в DOMAIN владеет созданными заказами, их версиями и единственным
+active order: несколько заказов могут оставаться `Available`, но только один
+переходит в `InProgress`, после чего ровно один раз становится `Completed`.
+Generate/Accept/Complete используют session-idempotency, conflict/reentry guards
+и публикуют один неизменяемый `OrderChanged` после commit. `ReadyForDelivery`
+не хранится как gameplay state, а вычисляется из active order и переданного
+immutable `InventorySnapshot`; query ничего не резервирует и не расходует.
+Production templates явно задают MVP-награды 25 за один настой базилика и 60
+за две травяные смеси. Order Board остаётся задачей #26, а атомарные consume,
+completion и credit reward принадлежат delivery coordinator задачи #27.
+
 ## Зависимости
 
 | Package | Version |
