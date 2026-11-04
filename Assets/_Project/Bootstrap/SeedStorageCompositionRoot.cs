@@ -4,19 +4,23 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using VrGame.Data.Crafting;
 using VrGame.Data.Fertilizers;
+using VrGame.Data.Orders;
 using VrGame.Data.Plants;
 using VrGame.DataAssets;
 using VrGame.DataAssets.Crafting;
 using VrGame.DataAssets.Fertilizers;
+using VrGame.DataAssets.Orders;
 using VrGame.DataAssets.Plants;
 using VrGame.Domain.Fertilizers;
 using VrGame.Domain.Crafting;
 using VrGame.Domain.Harvesting;
 using VrGame.Domain.Inventory;
+using VrGame.Domain.Orders;
 using VrGame.Domain.Plants;
 using VrGame.Domain.SeedStorage;
 using VrGame.Presentation.Indicators;
 using VrGame.Presentation.Crafting;
+using VrGame.Presentation.Orders;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.Fertilizers;
 using VrGame.VRInteraction.Harvesting;
@@ -107,11 +111,17 @@ namespace VrGame.Bootstrap
         [SerializeField] private RecipeCatalogAsset recipeCatalog;
         [SerializeField] private CraftingTableController craftingController;
         [SerializeField] private MonoBehaviour craftingView;
+        [SerializeField] private OrderTemplateCatalogAsset orderTemplateCatalog;
+        [SerializeField] private OrderBoardController orderBoardController;
+        [SerializeField] private MonoBehaviour orderBoardView;
+        [SerializeField] private OrderDeliveryIndicatorProjectionSource deliveryIndicatorSource;
 
         private PlantGrowthController growthController;
         private IFertilizerApplicationView fertilizerApplicationView;
         private InventoryEventRelay playerInventoryEvents;
         private CraftingEventRelay craftingEvents;
+        private OrderEventRelay orderEvents;
+        private CompositeIndicatorProjectionSource indicatorSources;
 
         public SeedDispenseCoordinator SeedStorage { get; private set; }
         public PlantSeedCoordinator SeedPlanting { get; private set; }
@@ -135,6 +145,10 @@ namespace VrGame.Bootstrap
         public RecipeCatalog Recipes { get; private set; }
         public CraftingService Crafting { get; private set; }
         public CraftingTableController CraftingController => craftingController;
+        public OrderTemplateCatalog OrderTemplates { get; private set; }
+        public OrderService Orders { get; private set; }
+        public OrderBoardController OrderBoardController => orderBoardController;
+        public OrderDeliveryIndicatorProjectionSource DeliveryIndicatorSource => deliveryIndicatorSource;
 
         private void Awake()
         {
@@ -142,6 +156,7 @@ namespace VrGame.Bootstrap
             var fertilizerStationView = fertilizerView as IFertilizerContainerView;
             fertilizerApplicationView = fertilizerView as IFertilizerApplicationView;
             var craftingTableView = craftingView as ICraftingTableView;
+            var orderView = orderBoardView as IOrderBoardView;
             if (itemCatalog == null || plantCatalog == null || fertilizerCatalog == null || materializer == null ||
                 stationController == null || view == null || issuedSeedsRoot == null ||
                 plantingReceiver == null || plantingSocket == null || wateringReceiver == null ||
@@ -150,15 +165,19 @@ namespace VrGame.Bootstrap
                 fertilizerApplicationView == null ||
                 issuedFertilizersRoot == null || fertilizerReceiver == null ||
                 harvestInteractable == null || harvestController == null ||
-                recipeCatalog == null || craftingController == null || craftingTableView == null)
+                recipeCatalog == null || craftingController == null || craftingTableView == null ||
+                orderTemplateCatalog == null || orderBoardController == null || orderView == null ||
+                deliveryIndicatorSource == null)
                 throw new InvalidOperationException("Композиция станции саженцев настроена не полностью.");
 
             var runtimeItems = itemCatalog.Build();
             var runtimePlants = plantCatalog.Build(runtimeItems);
             var runtimeFertilizers = fertilizerCatalog.Build(runtimeItems);
             Recipes = recipeCatalog.Build(runtimeItems);
+            OrderTemplates = orderTemplateCatalog.Build(runtimeItems);
             playerInventoryEvents = new InventoryEventRelay();
             craftingEvents = new CraftingEventRelay();
+            orderEvents = new OrderEventRelay();
             WarehouseInventory = new Inventory(InventoryId.New(), runtimeItems.Items, new InventorySink());
             PlayerInventory = new Inventory(InventoryId.New(), runtimeItems.Items, playerInventoryEvents);
             for (var index = 0; index < initialStock.Length; index++)
@@ -230,13 +249,29 @@ namespace VrGame.Bootstrap
                 PlayerInventory,
                 playerInventoryEvents,
                 craftingTableView);
-            indicatorPresenter.Observe(indicatorSource);
+            Orders = new OrderService(OrderTemplates, new SequentialOrderTemplateSelector(), orderEvents);
+            orderBoardController.Configure(Orders, runtimeItems.Items, orderEvents, orderView);
+            deliveryIndicatorSource.Configure(Orders, orderEvents);
+            for (var index = 0; index < OrderTemplates.Definitions.Count; index++)
+            {
+                var generated = Orders.Generate(new OrderContext(
+                    "Начальная генерация доступного заказа",
+                    Guid.NewGuid(),
+                    Guid.NewGuid()));
+                if (!generated.Succeeded)
+                    throw new InvalidOperationException($"Не удалось создать начальный заказ: {generated.Rejection}.");
+            }
+            indicatorSources = new CompositeIndicatorProjectionSource(indicatorSource, deliveryIndicatorSource);
+            indicatorPresenter.Observe(indicatorSources);
         }
 
         private void OnDestroy()
         {
             if (fertilizerReceiver != null && fertilizerApplicationView != null)
                 fertilizerReceiver.ApplicationCompleted -= fertilizerApplicationView.RenderApplication;
+            if (indicatorPresenter != null)
+                indicatorPresenter.Observe(null);
+            indicatorSources?.Dispose();
         }
 
         private void CleanupIssuedFertilizer(VrGame.Data.Items.ItemId itemId)
@@ -260,6 +295,20 @@ namespace VrGame.Bootstrap
         private sealed class UnityPlantGrowthRandomSource : IPlantGrowthRandomSource
         {
             public float NextUnit() => UnityEngine.Random.value;
+        }
+
+        private sealed class SequentialOrderTemplateSelector : IOrderTemplateSelector
+        {
+            private int nextIndex;
+
+            public int SelectIndex(int exclusiveMax)
+            {
+                if (exclusiveMax <= 0)
+                    return -1;
+                var selected = nextIndex % exclusiveMax;
+                nextIndex++;
+                return selected;
+            }
         }
     }
 }
