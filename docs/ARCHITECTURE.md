@@ -220,6 +220,18 @@ Production templates явно задают MVP-награды 25 за один �
 за две травяные смеси. Order Board остаётся задачей #26, а атомарные consume,
 completion и credit reward принадлежат delivery coordinator задачи #27.
 
+World-space `OrderBoardController` в PRESENTATION строит список и active-блок
+только из авторитетного `OrderServiceSnapshot`, разрешая medicine display names
+через общий `ItemCatalog`. Board вызывает только `Accept`: начальные доступные
+заказы создаёт Bootstrap ровно по одному на production template, а completion,
+списание medicine и reward остаются за #27. Submit guard и same-frame intent
+блокируют повторные UGUI/XRI callbacks; pause, focus loss и disable запрещают
+команды и сбрасывают transient intent. `OrderDeliveryIndicatorProjectionSource`
+показывает `Delivery` waypoint только при наличии active order, а composite
+projection source объединяет его с Water/ReadyToHarvest без второго presenter.
+Отдельная точка доставки пока содержит только визуальную площадку и
+`IndicatorTarget`; trigger/receiver появятся в delivery transaction #27.
+
 ## Зависимости
 
 | Package | Version |

@@ -13,10 +13,12 @@ using VrGame.Data.Fertilizers;
 using VrGame.DataAssets;
 using VrGame.DataAssets.Crafting;
 using VrGame.DataAssets.Fertilizers;
+using VrGame.DataAssets.Orders;
 using VrGame.DataAssets.Plants;
 using VrGame.Presentation.Indicators;
 using VrGame.Presentation.Crafting;
 using VrGame.Presentation.Fertilizers;
+using VrGame.Presentation.Orders;
 using VrGame.Presentation.SeedStorage;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.Fertilizers;
@@ -70,6 +72,8 @@ namespace VrGame.Editor
                 "Assets/_Project/Crafting/Samples/HerbalMedicine.asset");
             var recipeCatalog = LoadRequiredAsset<RecipeCatalogAsset>(
                 "Assets/_Project/Crafting/Samples/RecipeCatalog.asset");
+            var orderTemplateCatalog = LoadRequiredAsset<OrderTemplateCatalogAsset>(
+                "Assets/_Project/Orders/Data/OrderTemplateCatalog.asset");
             var itemCatalog = CreateAsset<ItemCatalogAsset>(DataRoot + "/SeedStorageItemCatalog.asset");
             SetObjectArray(itemCatalog, "definitions", new UnityEngine.Object[]
             {
@@ -113,6 +117,8 @@ namespace VrGame.Editor
             var wateringCanPrefab = CreateWateringCanPrefab();
             var fertilizerContainerPrefab = CreateFertilizerContainerPrefab();
             var craftingTablePrefab = CreateCraftingTablePrefab();
+            var orderBoardPrefab = CreateOrderBoardPrefab();
+            var deliveryPointPrefab = CreateOrderDeliveryPointPrefab();
             var station = (GameObject)PrefabUtility.InstantiatePrefab(stationPrefab, scene);
             station.name = "Станция саженцев";
             station.transform.SetPositionAndRotation(new Vector3(-1.1f, 1.05f, 1.4f), Quaternion.Euler(0f, 25f, 0f));
@@ -128,6 +134,12 @@ namespace VrGame.Editor
             var craftingTable = (GameObject)PrefabUtility.InstantiatePrefab(craftingTablePrefab, scene);
             craftingTable.name = "Crafting Table";
             craftingTable.transform.SetPositionAndRotation(new Vector3(1.15f, .9f, .45f), Quaternion.Euler(0f, -25f, 0f));
+            var orderBoard = (GameObject)PrefabUtility.InstantiatePrefab(orderBoardPrefab, scene);
+            orderBoard.name = "Доска заказов";
+            orderBoard.transform.SetPositionAndRotation(new Vector3(1.15f, 1.05f, -.65f), Quaternion.Euler(0f, -25f, 0f));
+            var deliveryPoint = (GameObject)PrefabUtility.InstantiatePrefab(deliveryPointPrefab, scene);
+            deliveryPoint.name = "Точка доставки заказов";
+            deliveryPoint.transform.SetPositionAndRotation(new Vector3(0f, .05f, 2.6f), Quaternion.identity);
 
             var presenterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/_Project/Presentation/Indicators/Assets/WorldSpaceIndicatorPresenter.prefab");
@@ -174,6 +186,11 @@ namespace VrGame.Editor
             serialized.FindProperty("recipeCatalog").objectReferenceValue = recipeCatalog;
             serialized.FindProperty("craftingController").objectReferenceValue = craftingTable.GetComponent<CraftingTableController>();
             serialized.FindProperty("craftingView").objectReferenceValue = craftingTable.GetComponentInChildren<CraftingTableTextView>(true);
+            serialized.FindProperty("orderTemplateCatalog").objectReferenceValue = orderTemplateCatalog;
+            serialized.FindProperty("orderBoardController").objectReferenceValue = orderBoard.GetComponent<OrderBoardController>();
+            serialized.FindProperty("orderBoardView").objectReferenceValue = orderBoard.GetComponentInChildren<OrderBoardTextView>(true);
+            serialized.FindProperty("deliveryIndicatorSource").objectReferenceValue =
+                deliveryPoint.GetComponent<OrderDeliveryIndicatorProjectionSource>();
             var initialStock = serialized.FindProperty("initialStock");
             initialStock.arraySize = 2;
             SetStock(initialStock.GetArrayElementAtIndex(0), "plant.basil", 5);
@@ -315,6 +332,115 @@ namespace VrGame.Editor
             UnityEventTools.AddPersistentListener(craft.onClick, controller.RequestCraftSelected);
 
             var path = PrefabRoot + "/CraftingTable.prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return prefab;
+        }
+
+        private static GameObject CreateOrderBoardPrefab()
+        {
+            var root = new GameObject("Доска заказов");
+            var controller = root.AddComponent<OrderBoardController>();
+
+            var board = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            board.name = "Корпус доски";
+            board.transform.SetParent(root.transform, false);
+            board.transform.localPosition = new Vector3(0f, 0f, .045f);
+            board.transform.localScale = new Vector3(.95f, .72f, .08f);
+            board.GetComponent<Renderer>().sharedMaterial = CreateMaterial(
+                PrefabRoot + "/OrderBoard.mat",
+                new Color(.12f, .18f, .24f));
+
+            var canvasObject = new GameObject(
+                "Экран Order Board",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(TrackedDeviceGraphicRaycaster));
+            canvasObject.transform.SetParent(root.transform, false);
+            canvasObject.transform.localPosition = new Vector3(0f, 0f, -.01f);
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var canvasRect = canvasObject.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(760f, 560f);
+            canvasRect.localScale = Vector3.one * .0012f;
+
+            var orders = CreateText(
+                canvasObject.transform,
+                "Список заказов",
+                new Vector2(-205f, 105f),
+                new Vector2(310f, 280f),
+                24);
+            orders.alignment = TextAnchor.UpperLeft;
+            var selection = CreateText(
+                canvasObject.transform,
+                "Детали заказа",
+                new Vector2(170f, 145f),
+                new Vector2(360f, 150f),
+                24);
+            var active = CreateText(
+                canvasObject.transform,
+                "Активный заказ",
+                new Vector2(170f, -10f),
+                new Vector2(360f, 145f),
+                23);
+            var status = CreateText(
+                canvasObject.transform,
+                "Статус заказа",
+                new Vector2(0f, -175f),
+                new Vector2(690f, 65f),
+                22);
+
+            var previous = CreateButton(canvasObject.transform, "Предыдущий заказ", "◀", -225f);
+            var next = CreateButton(canvasObject.transform, "Следующий заказ", "▶", -105f);
+            var accept = CreateButton(canvasObject.transform, "Принять заказ", "ПРИНЯТЬ", 155f);
+            SetButtonLayout(previous, new Vector2(-225f, -235f), new Vector2(100f, 65f));
+            SetButtonLayout(next, new Vector2(-105f, -235f), new Vector2(100f, 65f));
+            SetButtonLayout(accept, new Vector2(155f, -235f), new Vector2(240f, 65f));
+
+            var view = canvasObject.AddComponent<OrderBoardTextView>();
+            var viewSerialized = new SerializedObject(view);
+            viewSerialized.FindProperty("ordersText").objectReferenceValue = orders;
+            viewSerialized.FindProperty("selectionText").objectReferenceValue = selection;
+            viewSerialized.FindProperty("activeOrderText").objectReferenceValue = active;
+            viewSerialized.FindProperty("statusText").objectReferenceValue = status;
+            viewSerialized.FindProperty("acceptButton").objectReferenceValue = accept;
+            viewSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var controllerSerialized = new SerializedObject(controller);
+            controllerSerialized.FindProperty("viewBehaviour").objectReferenceValue = view;
+            controllerSerialized.ApplyModifiedPropertiesWithoutUndo();
+            UnityEventTools.AddPersistentListener(previous.onClick, controller.SelectPreviousOrder);
+            UnityEventTools.AddPersistentListener(next.onClick, controller.SelectNextOrder);
+            UnityEventTools.AddPersistentListener(accept.onClick, controller.RequestAcceptSelected);
+
+            var path = PrefabRoot + "/OrderBoard.prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEngine.Object.DestroyImmediate(root);
+            return prefab;
+        }
+
+        private static GameObject CreateOrderDeliveryPointPrefab()
+        {
+            var root = new GameObject("Точка доставки заказов");
+            var platform = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            platform.name = "Площадка доставки";
+            platform.transform.SetParent(root.transform, false);
+            platform.transform.localScale = new Vector3(.55f, .06f, .55f);
+            platform.GetComponent<Renderer>().sharedMaterial = CreateMaterial(
+                PrefabRoot + "/OrderDeliveryPoint.mat",
+                new Color(.16f, .52f, .72f));
+
+            var anchor = new GameObject("Якорь delivery waypoint");
+            anchor.transform.SetParent(root.transform, false);
+            anchor.transform.localPosition = new Vector3(0f, .35f, 0f);
+            var target = anchor.AddComponent<IndicatorTarget>();
+            var source = root.AddComponent<OrderDeliveryIndicatorProjectionSource>();
+            var sourceSerialized = new SerializedObject(source);
+            sourceSerialized.FindProperty("target").objectReferenceValue = target;
+            sourceSerialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var path = PrefabRoot + "/OrderDeliveryPoint.prefab";
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             UnityEngine.Object.DestroyImmediate(root);
             return prefab;
