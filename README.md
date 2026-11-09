@@ -23,3 +23,5 @@ pwsh -NoProfile -File scripts/Build-Android.ps1
 
 Подробности структуры, зависимостей и проверок описаны в
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+Полный цикл выращивания: [VR Scenario A](docs/manual/vr32-cultivation-scenario-a.md).
