@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67cbb6df6c0d4eea81b4f78a56251163, type: 3}
+  m_Name: BasilSeedOffer
+  m_EditorClassIdentifier:
+  id: product.basilseed
+  displayName: BasilSeed
+  price: 5
+  item: {fileID: 11400000, guid: 6a3a03e6852f6b04aa22feb7574740b5, type: 2}
+  quantity: 1
