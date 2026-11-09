@@ -12,6 +12,7 @@ namespace VrGame.Domain.Economy
         private readonly Dictionary<CommandKey, CompletedCommand> completedCommands =
             new Dictionary<CommandKey, CompletedCommand>();
         private bool isPublishingEvent;
+        private bool coordinatedMutation;
 
         public EconomyService(int startingBalance, IEconomyEventSink eventSink)
         {
@@ -37,12 +38,62 @@ namespace VrGame.Domain.Economy
         public EconomyMutationResult TrySpend(int amount, EconomyChangeContext context) =>
             Execute(EconomyMutationKind.Spend, amount, context);
 
+        internal bool TryAcquireCoordinatedMutation()
+        {
+            if (isPublishingEvent || coordinatedMutation)
+                return false;
+            coordinatedMutation = true;
+            return true;
+        }
+
+        internal void ReleaseCoordinatedMutation() => coordinatedMutation = false;
+
+        internal EconomyRejection ValidateCoordinatedSpend(int amount, EconomyChangeContext context)
+        {
+            if (!coordinatedMutation || !context.IsValid)
+                return EconomyRejection.InvalidContext;
+            if (amount <= 0)
+                return EconomyRejection.InvalidAmount;
+            // A purchase must never reuse a command already executed directly through Economy.
+            if (completedCommands.ContainsKey(new CommandKey(EconomyMutationKind.Spend, context.CommandId)))
+                return EconomyRejection.CommandConflict;
+            if (amount > Balance)
+                return EconomyRejection.InsufficientFunds;
+            return Version == long.MaxValue ? EconomyRejection.ArithmeticOverflow : EconomyRejection.None;
+        }
+
+        internal BalanceChanged CommitCoordinatedSpend(int amount, EconomyChangeContext context)
+        {
+            var change = new BalanceChanged(Version + 1, EconomyMutationKind.Spend, Balance, Balance - amount, context);
+            Balance -= amount;
+            Version++;
+            ledger.Add(change);
+            completedCommands.Add(new CommandKey(EconomyMutationKind.Spend, context.CommandId), new CompletedCommand(amount, context, EconomyMutationResult.Success(change, false)));
+            return change;
+        }
+
+        internal bool PublishCoordinatedSpend(BalanceChanged change)
+        {
+            var published = false;
+            try
+            {
+                published = eventSink.TryPublish(change);
+            }
+            catch (Exception)
+            {
+            }
+
+            var context = new EconomyChangeContext(change.Reason, change.CommandId, change.CorrelationId);
+            completedCommands[new CommandKey(EconomyMutationKind.Spend, change.CommandId)] = new CompletedCommand(-change.Delta, context, EconomyMutationResult.Success(change, published));
+            return published;
+        }
+
         private EconomyMutationResult Execute(
             EconomyMutationKind kind,
             int amount,
             EconomyChangeContext context)
         {
-            if (isPublishingEvent)
+            if (isPublishingEvent || coordinatedMutation)
                 return EconomyMutationResult.Reject(EconomyRejection.ReentrantMutation, amount, Balance);
             if (!context.IsValid)
                 return EconomyMutationResult.Reject(EconomyRejection.InvalidContext, amount, Balance);
