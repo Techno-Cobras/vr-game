@@ -8,7 +8,8 @@
     "VrGame.Presentation",
     "VrGame.VRInteraction",
     "Unity.InputSystem",
-    "Unity.XR.Interaction.Toolkit"
+    "Unity.XR.Interaction.Toolkit",
+    "Unity.UGUI"
   ],
   "autoReferenced": true
 }

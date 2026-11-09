@@ -164,6 +164,9 @@ namespace VrGame.Editor
             var compositionObject = new GameObject("Композиция станции саженцев");
             var composition = compositionObject.AddComponent<SeedStorageCompositionRoot>();
             var serialized = new SerializedObject(composition);
+            serialized.FindProperty("shopCatalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<VrGame.DataAssets.Shop.ShopCatalogAsset>("Assets/_Project/Shop/Samples/ShopCatalog.asset");
+            serialized.FindProperty("shopTabletAnchor").objectReferenceValue = xrOrigin.transform.Find("Camera Offset/Left Controller");
+            serialized.FindProperty("startingBalance").intValue = 100;
             serialized.FindProperty("itemCatalog").objectReferenceValue = itemCatalog;
             serialized.FindProperty("plantCatalog").objectReferenceValue = plantCatalog;
             serialized.FindProperty("fertilizerCatalog").objectReferenceValue = fertilizerCatalog;
