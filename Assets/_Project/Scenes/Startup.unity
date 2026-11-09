@@ -1166,6 +1166,9 @@ MonoBehaviour:
   fertilizerReceiver: {fileID: 2031063409}
   harvestInteractable: {fileID: 2031063408}
   harvestController: {fileID: 2031063407}
+  shopCatalog: {fileID: 11400000, guid: 8d4b372ab0f04a69a1f5e00ac85469c1, type: 2}
+  shopTabletAnchor: {fileID: 1399092099}
+  startingBalance: 100
   recipeCatalog: {fileID: 11400000, guid: cb1fa6dc7200ae642b0b2f0078b0686f, type: 2}
   craftingController: {fileID: 440367735}
   craftingView: {fileID: 440367734}
@@ -1998,3 +2001,8 @@ SceneRoots:
   - {fileID: 919843267}
   - {fileID: 1089433493}
   - {fileID: 943903336}
+--- !u!4 &1399092099 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 202364688, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+  m_PrefabInstance: {fileID: 1399092046}
+  m_PrefabAsset: {fileID: 0}

@@ -116,6 +116,14 @@ namespace VrGame.Bootstrap
         [SerializeField] private MonoBehaviour orderBoardView;
         [SerializeField] private OrderDeliveryIndicatorProjectionSource deliveryIndicatorSource;
 
+        [SerializeField] private VrGame.DataAssets.Shop.ShopCatalogAsset shopCatalog;
+        [SerializeField] private Transform shopTabletAnchor;
+        [SerializeField, Min(0)] private int startingBalance = 100;
+        public VrGame.Domain.Economy.EconomyService Economy { get; private set; }
+        public VrGame.Domain.Delivery.PendingDeliveryLedger Deliveries { get; private set; }
+        public VrGame.Domain.Shop.PurchaseService Purchases { get; private set; }
+        public VrGame.Presentation.Shop.ShopTabletController ShopTablet { get; private set; }
+
         private PlantGrowthController growthController;
         private IFertilizerApplicationView fertilizerApplicationView;
         private InventoryEventRelay playerInventoryEvents;
@@ -171,6 +179,13 @@ namespace VrGame.Bootstrap
                 throw new InvalidOperationException("Композиция станции саженцев настроена не полностью.");
 
             var runtimeItems = itemCatalog.Build();
+            if (shopCatalog == null || shopTabletAnchor == null) throw new InvalidOperationException("Shop tablet configuration missing.");
+            var economyEvents = new EconomyEventRelay();
+            Economy = new VrGame.Domain.Economy.EconomyService(startingBalance, economyEvents);
+            Deliveries = new VrGame.Domain.Delivery.PendingDeliveryLedger();
+            var offers = shopCatalog.Build(runtimeItems);
+            Purchases = new VrGame.Domain.Shop.PurchaseService(offers, Economy, Deliveries);
+            ShopTablet = ShopTabletFactory.Create(shopTabletAnchor, offers, Economy, Purchases, economyEvents);
             var runtimePlants = plantCatalog.Build(runtimeItems);
             var runtimeFertilizers = fertilizerCatalog.Build(runtimeItems);
             Recipes = recipeCatalog.Build(runtimeItems);
@@ -267,6 +282,7 @@ namespace VrGame.Bootstrap
 
         private void OnDestroy()
         {
+            if (ShopTablet != null) Destroy(ShopTablet.gameObject);
             if (fertilizerReceiver != null && fertilizerApplicationView != null)
                 fertilizerReceiver.ApplicationCompleted -= fertilizerApplicationView.RenderApplication;
             if (indicatorPresenter != null)
