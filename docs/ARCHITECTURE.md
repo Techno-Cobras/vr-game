@@ -243,6 +243,17 @@ projection source объединяет его с Water/ReadyToHarvest без в�
 Контроллер подписывается только в `OnEnable`, полностью отписывается в
 `OnDisable` и блокирует команды при pause/focus loss.
 
+Каталог магазина в DATA хранит стабильный `ProductId`, русское отображаемое
+имя, цену, item, quantity и representation. Он принимает только саженцы и
+удобрения из общего `ItemCatalog`, отклоняет дубли Product ID и несовпадающие
+representation. `PurchaseService` в DOMAIN координирует единственный
+`EconomyService` и `PendingDeliveryLedger`: сначала подготавливает spend и
+delivery entry, затем фиксирует оба состояния до первого callback. Недостаток
+средств и неизвестный товар ничего не меняют, а Command ID обеспечивает
+replay/conflict semantics без повторного списания или дублирования доставки.
+Материализация, capacity и claim не принадлежат покупке и развиваются отдельно
+в delivery subsystem.
+
 ## Зависимости
 
 | Package | Version |

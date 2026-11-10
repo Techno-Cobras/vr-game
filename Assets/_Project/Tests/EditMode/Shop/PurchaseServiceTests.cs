@@ -24,6 +24,14 @@ namespace VrGame.Tests.EditMode.Shop
         {
             var catalog = Catalog();
             Assert.That(catalog.Definitions, Has.Count.EqualTo(5));
+            Assert.That(catalog.Definitions.Select(value => value.DisplayName), Is.EquivalentTo(new[]
+            {
+                "Саженец базилика",
+                "Саженец мяты",
+                "Обычное удобрение",
+                "Улучшенное удобрение",
+                "Премиальное удобрение"
+            }));
             foreach (var offer in catalog.Definitions)
             {
                 var economy = new EconomyService(offer.Price, new Sink());
@@ -38,9 +46,12 @@ namespace VrGame.Tests.EditMode.Shop
                 Assert.That(economy.Balance, Is.Zero);
                 Assert.That(economy.Version, Is.EqualTo(1));
                 Assert.That(ledger.GetSnapshot(), Has.Count.EqualTo(1));
+                Assert.That(result.Entry.ProductId, Is.EqualTo(offer.Id));
                 Assert.That(result.Entry.ItemId, Is.EqualTo(offer.ItemId));
                 Assert.That(result.Entry.Quantity, Is.EqualTo(offer.Quantity));
                 Assert.That(result.Entry.Representation, Is.EqualTo(offer.Representation));
+                Assert.That(result.Entry.PurchaseCommandId, Is.EqualTo(context.CommandId));
+                Assert.That(result.Entry.Sequence, Is.EqualTo(1));
             }
         }
         [Test]
@@ -125,7 +136,7 @@ namespace VrGame.Tests.EditMode.Shop
             Assert.Throws<ArgumentOutOfRangeException>(() => new ShopOfferDefinition(offer.Id, offer.DisplayName, 0, offer.ItemId, 1, offer.Representation));
             Assert.Throws<ArgumentOutOfRangeException>(() => new ShopOfferDefinition(offer.Id, offer.DisplayName, 1, offer.ItemId, 0, offer.Representation));
             var wrongRepresentation = new ShopOfferDefinition(offer.Id, offer.DisplayName, 1, offer.ItemId, 1,
-                new VrGame.Data.Items.ItemRepresentationKey("wrong.representation"));
+                new VrGame.Data.Items.ItemRepresentationKey("representation.wrong"));
             Assert.Throws<ArgumentException>(() => new ShopCatalog(runtime.Items, new[] { wrongRepresentation }));
             var harvest = runtime.Items.Definitions.First(x => x.Category == VrGame.Data.Items.ItemCategory.HarvestedPlant);
             var invalidCategory = new ShopOfferDefinition(offer.Id, offer.DisplayName, 1, harvest.Id, 1, harvest.Representation);

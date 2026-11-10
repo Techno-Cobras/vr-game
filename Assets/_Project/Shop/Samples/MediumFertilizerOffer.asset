@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MediumFertilizerOffer
   m_EditorClassIdentifier:
   id: product.mediumfertilizer
-  displayName: MediumFertilizer
+  displayName: "\u0423\u043B\u0443\u0447\u0448\u0435\u043D\u043D\u043E\u0435 \u0443\u0434\u043E\u0431\u0440\u0435\u043D\u0438\u0435"
   price: 20
   item: {fileID: 11400000, guid: 042e48196cafb664790f7eb0e8f2f6e6, type: 2}
   quantity: 1

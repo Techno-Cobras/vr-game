@@ -3,7 +3,7 @@ using VrGame.Data.Shop;
 
 namespace VrGame.DataAssets.Shop
 {
-    [CreateAssetMenu(menuName = "VR Game/Shop/Offer", fileName = "ShopOffer")]
+    [CreateAssetMenu(menuName = "VR Game/Магазин/Предложение", fileName = "ShopOffer")]
     public sealed class ShopOfferAsset : ScriptableObject
     {
         [SerializeField]
@@ -19,7 +19,7 @@ namespace VrGame.DataAssets.Shop
         public ShopOfferDefinition ToDefinition()
         {
             if (item == null)
-                throw new System.InvalidOperationException("Shop offer item missing.");
+                throw new System.InvalidOperationException("В предложении магазина не настроен предмет.");
             var definition = item.ToDefinition();
             return new ShopOfferDefinition(new ProductId(id), displayName, price, definition.Id, quantity, definition.Representation);
         }

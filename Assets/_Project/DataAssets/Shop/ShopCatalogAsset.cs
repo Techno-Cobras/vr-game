@@ -5,7 +5,7 @@ using VrGame.Data.Shop;
 
 namespace VrGame.DataAssets.Shop
 {
-    [CreateAssetMenu(menuName = "VR Game/Shop/Catalog", fileName = "ShopCatalog")]
+    [CreateAssetMenu(menuName = "VR Game/Магазин/Каталог", fileName = "ShopCatalog")]
     public sealed class ShopCatalogAsset : ScriptableObject
     {
         [SerializeField]
@@ -13,7 +13,7 @@ namespace VrGame.DataAssets.Shop
         public ShopCatalog Build(RuntimeItemCatalog items)
         {
             if (items == null || offers == null || offers.Any(x => x == null))
-                throw new ArgumentException("Missing shop catalog data.");
+                throw new ArgumentException("Данные каталога магазина настроены не полностью.");
             return new ShopCatalog(items.Items, offers.Select(x => x.ToDefinition()));
         }
     }

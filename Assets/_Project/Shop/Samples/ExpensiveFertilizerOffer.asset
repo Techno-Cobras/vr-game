@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ExpensiveFertilizerOffer
   m_EditorClassIdentifier:
   id: product.expensivefertilizer
-  displayName: ExpensiveFertilizer
+  displayName: "\u041F\u0440\u0435\u043C\u0438\u0430\u043B\u044C\u043D\u043E\u0435 \u0443\u0434\u043E\u0431\u0440\u0435\u043D\u0438\u0435"
   price: 35
   item: {fileID: 11400000, guid: e7045acc4f636e6468c31d2b8d9e8d3a, type: 2}
   quantity: 1

@@ -76,14 +76,21 @@ namespace VrGame.Domain.Shop
                         return new PurchaseResult(PurchaseRejection.ReentrantCommand);
                     try
                     {
-                        var rejection = economy.ValidateCoordinatedSpend(offer.Price, context);
+                        var rejection = economy.TryPrepareCoordinatedSpend(
+                            offer.Price,
+                            context,
+                            out var preparedSpend);
                         if (rejection != EconomyRejection.None)
                             return Remember(productId, context, new PurchaseResult(PurchaseRejection.EconomyRejected, rejection));
                         var entry = deliveries.Prepare(offer, context.CommandId);
-                        var balanceChange = economy.CommitCoordinatedSpend(offer.Price, context);
+                        var balanceChange = economy.CommitPreparedSpend(preparedSpend);
                         deliveries.Commit(entry);
                         var result = Remember(productId, context, new PurchaseResult(PurchaseRejection.None, entry: entry));
-                        result.BalanceEventPublished = economy.PublishCoordinatedSpend(balanceChange);
+                        result.BalanceEventPublished = economy.PublishPrepared(balanceChange);
+                        economy.CompletePreparedCommand(
+                            preparedSpend,
+                            balanceChange,
+                            result.BalanceEventPublished);
                         result.DeliveryEventPublished = deliveries.Publish(entry);
                         return result;
                     }

@@ -1,24 +1,30 @@
-# Shop catalog and atomic purchase (#28)
+# Каталог магазина и атомарная покупка (VR-28)
 
-Build the existing `SeedStorageItemCatalog.asset`, then build
-`Shop/Samples/ShopCatalog.asset` with the runtime item catalog. The five offers
-reference existing Basil/Mint seeds and Cheap/Medium/Expensive fertilizer item
-assets. Prices and quantities are configured on each ShopOffer asset.
+Сначала соберите существующий `SeedStorageItemCatalog.asset`, затем передайте
+полученный runtime-каталог предметов в `Shop/Samples/ShopCatalog.asset`.
+Пять предложений ссылаются на существующие саженцы базилика и мяты, а также на
+обычное, улучшенное и премиальное удобрения. Цена и количество настраиваются в
+соответствующем `ShopOffer` asset.
 
-Create one session EconomyService, PendingDeliveryLedger and PurchaseService.
-Call Purchase with a product ID and a fresh EconomyChangeContext for each
-intentional confirmation; retries reuse the entire context. Read Entry on success
-and the ledger snapshot to recover delivery data if event publication fails.
-Both money and pending delivery commit before callbacks; callback mutations are
-rejected. No inventory item is created at purchase time.
+Для одной игровой сессии создаются единственные экземпляры `EconomyService`,
+`PendingDeliveryLedger` и `PurchaseService`. Намеренное подтверждение покупки
+вызывает `Purchase` с Product ID и новым `EconomyChangeContext`; повтор той же
+команды обязан использовать исходный context. Успешный результат содержит
+`Entry`, а snapshot ledger позволяет восстановить данные доставки, даже если
+публикация события завершилась ошибкой.
 
-The pending ledger deliberately only records purchases. Spawn/capacity/claim
-lifecycle is #30/#31; tablet wiring is #29. Scene/bootstrap integration remains
-with those features. The ledger and command replay cache are in-session only.
+Деньги и pending delivery фиксируются до первого callback. Повторный вход из
+callback отклоняется, предмет не создаётся в инвентаре в момент покупки.
+`PendingDeliveryLedger` хранит только подтверждённые покупки: состояния
+spawn/capacity/claim относятся к VR-30 и VR-31, а подключение планшета — к
+VR-29. Ledger и кэш команд существуют только в рамках текущей сессии.
 
-EditMode PurchaseServiceTests cover configured products, exact payment and
-entry contents, insufficient funds, invalid product/context, replay/conflict,
-ordered independent purchases, callback reentry, observer failure and direct
-Economy command collisions. Run scripts/Test-UnityProject.ps1 with Editor
-6000.3.25f1. Local Unity tests and smoke have NOT run: Editor is unavailable.
-No Quest acceptance has been performed; this change introduces domain/data APIs.
+`PurchaseServiceTests` покрывают пять настроенных товаров, точную оплату и
+содержимое entry, недостаток средств, неизвестный товар, невалидный context,
+replay/conflict, порядок независимых покупок, re-entry callback, сбой
+наблюдателя и конфликт с прямой командой Economy.
+
+Проверка выполняется на Unity `6000.3.25f1` командами
+`scripts/Test-UnitySmoke.ps1` и `scripts/Test-UnityProject.ps1`. Изменения не
+затрагивают сцены или XR-взаимодействия; аппаратная проверка Quest 3 для этой
+доменной задачи не требуется.

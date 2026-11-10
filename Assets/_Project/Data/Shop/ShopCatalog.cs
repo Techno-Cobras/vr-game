@@ -11,7 +11,7 @@ namespace VrGame.Data.Shop
         public ProductId(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
-                throw new ArgumentException("Product ID required.");
+                throw new ArgumentException("Product ID обязателен.");
             Value = value;
         }
 
@@ -27,9 +27,11 @@ namespace VrGame.Data.Shop
         public ShopOfferDefinition(ProductId id, string displayName, int price, ItemId itemId, int quantity, ItemRepresentationKey representation)
         {
             if (string.IsNullOrWhiteSpace(id.Value) || string.IsNullOrWhiteSpace(displayName))
-                throw new ArgumentException("Product ID and name required.");
-            if (price <= 0 || quantity <= 0)
+                throw new ArgumentException("Product ID и отображаемое имя обязательны.");
+            if (price <= 0)
                 throw new ArgumentOutOfRangeException(nameof(price));
+            if (quantity <= 0)
+                throw new ArgumentOutOfRangeException(nameof(quantity));
             Id = id;
             DisplayName = displayName;
             Price = price;
@@ -56,12 +58,12 @@ namespace VrGame.Data.Shop
             foreach (var offer in definitions)
             {
                 if (offer == null)
-                    throw new ArgumentException("Missing offer.");
+                    throw new ArgumentException("Предложение магазина отсутствует.");
                 var item = items.GetRequired(offer.ItemId);
                 if ((item.Category != ItemCategory.Seed && item.Category != ItemCategory.Fertilizer) || !item.Representation.Equals(offer.Representation))
-                    throw new ArgumentException("Offer must reference a seed/fertilizer and its representation.");
+                    throw new ArgumentException("Предложение должно ссылаться на саженец или удобрение и его representation.");
                 if (!offers.TryAdd(offer.Id, offer))
-                    throw new ArgumentException("Duplicate product ID.");
+                    throw new ArgumentException("Product ID предложения должен быть уникальным.");
             }
 
             Definitions = new ReadOnlyCollection<ShopOfferDefinition>(offers.Values.OrderBy(x => x.Id.Value, StringComparer.Ordinal).ToList());
