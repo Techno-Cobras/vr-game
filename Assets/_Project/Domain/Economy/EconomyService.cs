@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace VrGame.Domain.Economy
 {
-    public sealed class EconomyService
+    public sealed partial class EconomyService
     {
         private readonly IEconomyEventSink eventSink;
         private readonly List<BalanceChanged> ledger = new List<BalanceChanged>();

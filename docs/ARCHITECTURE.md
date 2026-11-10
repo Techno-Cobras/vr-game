@@ -217,20 +217,31 @@ Generate/Accept/Complete используют session-idempotency, conflict/reen
 не хранится как gameplay state, а вычисляется из active order и переданного
 immutable `InventorySnapshot`; query ничего не резервирует и не расходует.
 Production templates явно задают MVP-награды 25 за один настой базилика и 60
-за две травяные смеси. Order Board остаётся задачей #26, а атомарные consume,
-completion и credit reward принадлежат delivery coordinator задачи #27.
+за две травяные смеси.
+
+`OrderDeliveryCoordinator` образует атомарную границу Inventory + Orders +
+Economy. Команда принимает только точные medicine ID и quantity активного
+заказа, блокирует все три агрегата, подготавливает remove/completion/credit и
+фиксирует их до первого callback. Любой отказ на prepare не меняет состояние;
+успех списывает medicine, завершает заказ и начисляет reward ровно один раз.
+Command ID обеспечивает replay/conflict semantics, а re-entry guards не дают
+event callbacks повторить payout. Событие заказа публикуется последним, поэтому
+presentation наблюдает только полностью committed transaction.
 
 World-space `OrderBoardController` в PRESENTATION строит список и active-блок
 только из авторитетного `OrderServiceSnapshot`, разрешая medicine display names
 через общий `ItemCatalog`. Board вызывает только `Accept`: начальные доступные
-заказы создаёт Bootstrap ровно по одному на production template, а completion,
-списание medicine и reward остаются за #27. Submit guard и same-frame intent
+заказы создаёт Bootstrap ровно по одному на production template. Submit guard и same-frame intent
 блокируют повторные UGUI/XRI callbacks; pause, focus loss и disable запрещают
 команды и сбрасывают transient intent. `OrderDeliveryIndicatorProjectionSource`
 показывает `Delivery` waypoint только при наличии active order, а composite
 projection source объединяет его с Water/ReadyToHarvest без второго presenter.
-Отдельная точка доставки пока содержит только визуальную площадку и
-`IndicatorTarget`; trigger/receiver появятся в delivery transaction #27.
+Точка доставки содержит `XRSimpleInteractable` и
+`OrderDeliveryInteractionController`. Поскольку crafting хранит готовое
+лекарство как quantity в Player Inventory, VR-интеракция отправляет координатору
+точное требование активного заказа; успешный `OrderChanged` скрывает waypoint.
+Контроллер подписывается только в `OnEnable`, полностью отписывается в
+`OnDisable` и блокирует команды при pause/focus loss.
 
 ## Зависимости
 
