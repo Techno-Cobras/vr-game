@@ -5,7 +5,7 @@ using VrGame.Domain.Inventory;
 
 namespace VrGame.Domain.Orders
 {
-    public sealed class OrderService
+    public sealed partial class OrderService
     {
         private readonly OrderTemplateCatalog templates;
         private readonly IOrderTemplateSelector selector;

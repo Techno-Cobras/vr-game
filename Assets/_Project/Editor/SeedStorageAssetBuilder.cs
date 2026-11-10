@@ -23,6 +23,7 @@ using VrGame.Presentation.SeedStorage;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.Fertilizers;
 using VrGame.VRInteraction.Harvesting;
+using VrGame.VRInteraction.Orders;
 using VrGame.VRInteraction.SeedStorage;
 using VrGame.VRInteraction.Watering;
 
@@ -191,6 +192,7 @@ namespace VrGame.Editor
             serialized.FindProperty("orderBoardView").objectReferenceValue = orderBoard.GetComponentInChildren<OrderBoardTextView>(true);
             serialized.FindProperty("deliveryIndicatorSource").objectReferenceValue =
                 deliveryPoint.GetComponent<OrderDeliveryIndicatorProjectionSource>();
+            serialized.FindProperty("startingBalance").intValue = 0;
             var initialStock = serialized.FindProperty("initialStock");
             initialStock.arraySize = 2;
             SetStock(initialStock.GetArrayElementAtIndex(0), "plant.basil", 5);
@@ -430,6 +432,11 @@ namespace VrGame.Editor
             platform.GetComponent<Renderer>().sharedMaterial = CreateMaterial(
                 PrefabRoot + "/OrderDeliveryPoint.mat",
                 new Color(.16f, .52f, .72f));
+            var interactable = platform.AddComponent<XRSimpleInteractable>();
+            var controller = platform.AddComponent<OrderDeliveryInteractionController>();
+            var controllerSerialized = new SerializedObject(controller);
+            controllerSerialized.FindProperty("interactable").objectReferenceValue = interactable;
+            controllerSerialized.ApplyModifiedPropertiesWithoutUndo();
 
             var anchor = new GameObject("Якорь delivery waypoint");
             anchor.transform.SetParent(root.transform, false);
