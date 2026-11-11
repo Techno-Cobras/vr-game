@@ -254,6 +254,18 @@ replay/conflict semantics без повторного списания или д
 Материализация, capacity и claim не принадлежат покупке и развиваются отдельно
 в delivery subsystem.
 
+`ShopTabletController` в PRESENTATION строит read model из `ShopCatalog` и
+баланса единственного session `EconomyService`. Он открывает каталог только при
+доступных focus/tracking, переключает товары и передаёт подтверждение в
+`PurchaseService`; UI не изменяет деньги или delivery ledger напрямую.
+`EconomyEventRelay` обновляет отображаемый баланс без polling, а submitting и
+same-frame guards исключают двойную покупку от повторных UGUI/XRI callbacks.
+Runtime `ShopTabletFactory` создаёт один world-space canvas на сериализованном
+якоре левого контроллера и использует существующие XR UI Press,
+`TrackedDeviceGraphicRaycaster` и `XRUIInputModule`. Новые input bindings,
+EventSystem или XR owners не создаются. Потеря tracking, pause, focus loss и
+disable закрывают панель и блокируют команды.
+
 ## Зависимости
 
 | Package | Version |

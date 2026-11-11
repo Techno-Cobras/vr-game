@@ -1,24 +1,29 @@
 using System;
 using UnityEngine;
 using VrGame.Domain.Economy;
+using VrGame.Presentation.Shop;
 
 namespace VrGame.Bootstrap
 {
-    public sealed class EconomyEventRelay : IEconomyEventSink
+    public sealed class EconomyEventRelay : IEconomyEventSink, IEconomyChangeSource
     {
         public event Action<BalanceChanged> Changed;
-
-        public bool TryPublish(BalanceChanged balanceChanged)
+        public bool TryPublish(BalanceChanged change)
         {
-            var handlers = Changed?.GetInvocationList();
-            if (handlers == null)
-                return true;
-            foreach (Action<BalanceChanged> handler in handlers)
-            {
-                try { handler(balanceChanged); }
-                catch (Exception exception) { Debug.LogException(exception); }
-            }
-            return true;
+            var success = true;
+            if (Changed != null)
+                foreach (Action<BalanceChanged> handler in Changed.GetInvocationList())
+                    try
+                    {
+                        handler(change);
+                    }
+                    catch (Exception exception)
+                    {
+                        success = false;
+                        Debug.LogException(exception);
+                    }
+
+            return success;
         }
     }
 }

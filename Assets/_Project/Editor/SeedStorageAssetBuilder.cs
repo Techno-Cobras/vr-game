@@ -15,6 +15,7 @@ using VrGame.DataAssets.Crafting;
 using VrGame.DataAssets.Fertilizers;
 using VrGame.DataAssets.Orders;
 using VrGame.DataAssets.Plants;
+using VrGame.DataAssets.Shop;
 using VrGame.Presentation.Indicators;
 using VrGame.Presentation.Crafting;
 using VrGame.Presentation.Fertilizers;
@@ -75,6 +76,8 @@ namespace VrGame.Editor
                 "Assets/_Project/Crafting/Samples/RecipeCatalog.asset");
             var orderTemplateCatalog = LoadRequiredAsset<OrderTemplateCatalogAsset>(
                 "Assets/_Project/Orders/Data/OrderTemplateCatalog.asset");
+            var shopCatalog = LoadRequiredAsset<ShopCatalogAsset>(
+                "Assets/_Project/Shop/Samples/ShopCatalog.asset");
             var itemCatalog = CreateAsset<ItemCatalogAsset>(DataRoot + "/SeedStorageItemCatalog.asset");
             SetObjectArray(itemCatalog, "definitions", new UnityEngine.Object[]
             {
@@ -163,7 +166,13 @@ namespace VrGame.Editor
             issuedFertilizersRoot.transform.position = new Vector3(-.55f, 1.05f, .65f);
             var compositionObject = new GameObject("Композиция станции саженцев");
             var composition = compositionObject.AddComponent<SeedStorageCompositionRoot>();
+            var shopTabletAnchor = xrOrigin.transform.Find("Camera Offset/Left Controller");
+            if (shopTabletAnchor == null)
+                throw new InvalidOperationException("Якорь планшета на левом контроллере XR Origin не найден.");
             var serialized = new SerializedObject(composition);
+            serialized.FindProperty("shopCatalog").objectReferenceValue = shopCatalog;
+            serialized.FindProperty("shopTabletAnchor").objectReferenceValue = shopTabletAnchor;
+            serialized.FindProperty("startingBalance").intValue = 100;
             serialized.FindProperty("itemCatalog").objectReferenceValue = itemCatalog;
             serialized.FindProperty("plantCatalog").objectReferenceValue = plantCatalog;
             serialized.FindProperty("fertilizerCatalog").objectReferenceValue = fertilizerCatalog;
@@ -192,7 +201,6 @@ namespace VrGame.Editor
             serialized.FindProperty("orderBoardView").objectReferenceValue = orderBoard.GetComponentInChildren<OrderBoardTextView>(true);
             serialized.FindProperty("deliveryIndicatorSource").objectReferenceValue =
                 deliveryPoint.GetComponent<OrderDeliveryIndicatorProjectionSource>();
-            serialized.FindProperty("startingBalance").intValue = 0;
             var initialStock = serialized.FindProperty("initialStock");
             initialStock.arraySize = 2;
             SetStock(initialStock.GetArrayElementAtIndex(0), "plant.basil", 5);
