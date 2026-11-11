@@ -56,11 +56,13 @@ namespace VrGame.Tests.EditMode.Shop
             fixture.Controller.Toggle();
             Assert.That(fixture.Controller.IsOpen, Is.False);
             fixture.Controller.SetApplicationFocused(true);
-            fixture.Controller.enabled = false;
+            InvokeLifecycle(fixture.Controller, "OnDisable");
             var renders = fixture.View.Renders;
-            fixture.Economy.Credit(10, new EconomyChangeContext("credit", Guid.NewGuid(), Guid.NewGuid()));
+            fixture.Economy.Credit(
+                10,
+                new EconomyChangeContext("Тестовое начисление", Guid.NewGuid(), Guid.NewGuid()));
             Assert.That(fixture.View.Renders, Is.EqualTo(renders));
-            fixture.Controller.enabled = true;
+            InvokeLifecycle(fixture.Controller, "OnEnable");
             Assert.That(fixture.View.Balance, Is.EqualTo(10));
             fixture.Controller.SetTrackingAvailable(false);
             fixture.Controller.Toggle();
@@ -86,6 +88,15 @@ namespace VrGame.Tests.EditMode.Shop
                 Queue = queue,
                 View = view
             };
+        }
+
+        private static void InvokeLifecycle(ShopTabletController controller, string methodName)
+        {
+            var method = typeof(ShopTabletController).GetMethod(
+                methodName,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            method.Invoke(controller, null);
         }
 
         private sealed class Fixture

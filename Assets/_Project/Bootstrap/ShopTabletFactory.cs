@@ -15,25 +15,37 @@ namespace VrGame.Bootstrap
         private GameObject panel;
         private Text content;
         private Button tab, previous, next, confirm, close;
+        private Canvas tabletCanvas;
         private ShopTabletController controller;
         public static ShopTabletController Create(Transform anchor, ShopCatalog catalog, EconomyService economy, PurchaseService purchases, EconomyEventRelay events)
         {
             if (anchor == null)
                 throw new ArgumentNullException(nameof(anchor));
-            var host = new GameObject("Shop Tablet", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(TrackedDeviceGraphicRaycaster));
+            var viewer = Camera.main;
+            if (viewer == null)
+                throw new InvalidOperationException("Основная XR camera для планшета магазина не найдена.");
+
+            var host = new GameObject(
+                "Планшет магазина",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(TrackedDeviceGraphicRaycaster));
             host.transform.SetParent(anchor, false);
             host.transform.localPosition = new Vector3(0, .12f, .15f);
             host.transform.localRotation = Quaternion.Euler(65, 0, 0);
             host.transform.localScale = Vector3.one * .0006f;
             host.GetComponent<RectTransform>().sizeDelta = new Vector2(600, 650);
-            host.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-            host.GetComponent<Canvas>().worldCamera = Camera.main;
+            var canvas = host.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.worldCamera = viewer;
             var factory = host.AddComponent<ShopTabletFactory>();
+            factory.tabletCanvas = canvas;
             factory.Build();
             factory.controller = host.AddComponent<ShopTabletController>();
             factory.controller.Configure(catalog, economy, purchases, events, factory);
             factory.controller.SetTrackingAvailable(false);
-            host.GetComponent<Canvas>().enabled = false;
+            canvas.enabled = false;
             factory.Bind();
             return factory.controller;
         }
@@ -41,7 +53,7 @@ namespace VrGame.Bootstrap
         private void Build()
         {
             tab = Button(transform, "Магазин", new Vector2(0, -290));
-            panel = new GameObject("Catalog", typeof(RectTransform), typeof(Image));
+            panel = new GameObject("Каталог", typeof(RectTransform), typeof(Image));
             panel.transform.SetParent(transform, false);
             panel.GetComponent<RectTransform>().sizeDelta = new Vector2(600, 540);
             panel.GetComponent<Image>().color = new Color(.04f, .07f, .1f, .98f);
@@ -54,7 +66,7 @@ namespace VrGame.Bootstrap
 
         private static Text Label(Transform parent, string value, Vector2 position, Vector2 size)
         {
-            var host = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var host = new GameObject("Текст", typeof(RectTransform), typeof(Text));
             host.transform.SetParent(parent, false);
             var rect = host.GetComponent<RectTransform>();
             rect.sizeDelta = size;
@@ -86,7 +98,7 @@ namespace VrGame.Bootstrap
         {
             var device = UnityEngine.XR.InputDevices.GetDeviceAtXRNode(UnityEngine.XR.XRNode.LeftHand);
             var available = device.isValid && device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.isTracked, out var value) && value;
-            GetComponent<Canvas>().enabled = available;
+            tabletCanvas.enabled = available;
             if (tracked != available)
             {
                 tracked = available;

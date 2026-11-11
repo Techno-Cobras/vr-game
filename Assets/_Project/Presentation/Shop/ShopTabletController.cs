@@ -85,7 +85,12 @@ namespace VrGame.Presentation.Shop
             submitting = true;
             try
             {
-                lastResult = purchases.Purchase(offer.Id, new EconomyChangeContext("Shop tablet confirmation", Guid.NewGuid(), Guid.NewGuid()));
+                lastResult = purchases.Purchase(
+                    offer.Id,
+                    new EconomyChangeContext(
+                        "Подтверждение покупки на планшете магазина",
+                        Guid.NewGuid(),
+                        Guid.NewGuid()));
                 feedback = lastResult.Succeeded ? "Покупка оформлена" : lastResult.EconomyRejection == EconomyRejection.InsufficientFunds ? "Недостаточно средств" : "Покупка отклонена";
                 return lastResult;
             }

@@ -1,24 +1,32 @@
-# VR shop tablet (#29)
+# VR-планшет магазина (VR-29)
 
-Startup composition builds shared Economy, PurchaseService and pending delivery ledger
-from the configured Shop catalog; starting balance is serialized (100 by default).
-A runtime factory creates one wrist canvas on the serialized Left Controller anchor.
-This intentionally avoids needing generated tablet prefab data before Startup can use it.
-The Editor scene builder mirrors the serialized references. Existing XR UI Press selects
-the always-visible Магазин tab and buttons; no new bindings or XR/EventSystem owners.
-Left-hand tracking loss hides the canvas and blocks commands. Pause/focus loss closes it.
+Startup composition создаёт единственные на сессию `EconomyService`,
+`PurchaseService` и `PendingDeliveryLedger` из настроенного каталога магазина.
+Начальный баланс сериализован и равен 100. Runtime factory создаёт один
+world-space canvas на явно заданном якоре левого контроллера; editor builder
+сохраняет те же ссылки в Startup. Вкладка «Магазин» и кнопки используют
+существующие XR UI Press и `XRUIInputModule`: новые bindings, EventSystem или XR
+manager не создаются.
 
-Quest 3 walkthrough: open Startup, raise left wrist, select Магазин with right XR ray.
-Verify five products with quantities/prices and current balance. Navigate, confirm an
-affordable product, and verify exact one spend/pending entry and success feedback.
-Repeat confirmation callbacks in the same frame: one purchase. Separate intentional
-clicks in later frames may each purchase. Spend down then select an unaffordable offer:
-no spend/entry, distinct insufficient-funds feedback. External economy credits refresh
-balance via events. Close/reopen; suspend/resume and lose tracking: no commands until
-focus/tracking return, panel stays closed. Check ray readability and wrist orientation.
-Record commit/APK/device and expected/actual balance/queue counts. Physical delivery #31
-is separate; purchases only enqueue resources here.
+Потеря tracking левой руки скрывает canvas, закрывает каталог и блокирует
+команды. Pause и focus loss также закрывают интерфейс. Баланс обновляется только
+по событиям общего `EconomyService`, а подтверждение вызывает исключительно
+`PurchaseService`. Повторные callbacks в одном кадре создают одну покупку.
 
-EditMode controller tests and PlayMode Startup wiring tests added. Unity imports,
-EditMode/PlayMode, smoke, Android build and Quest walkthrough NOT RUN: pinned Editor
-6000.3.25f1 and device unavailable. Runtime UI layout/pose must be verified in headset.
+## Ручная проверка на Quest 3
+
+1. Откройте Startup, поднимите левое запястье и выберите «Магазин» правым XR ray.
+2. Проверьте пять русских товаров, количества, цены и текущий баланс.
+3. Выберите доступный товар и подтвердите покупку: баланс уменьшается один раз,
+   в pending ledger появляется одна запись, отображается «Покупка оформлена».
+4. Быстро подтвердите повторно в том же кадре: второй spend/entry не создаётся.
+5. Исчерпайте баланс и повторите покупку: состояние не меняется, отображается
+   «Недостаточно средств».
+6. Закройте и откройте каталог, затем проверьте suspend/resume и потерю tracking:
+   команды заблокированы до возврата focus/tracking, панель остаётся закрытой.
+7. Проверьте читаемость, позу планшета и попадание XR ray на поддерживаемом Quest 3.
+
+Физическая выдача относится к VR-31: планшет только ставит купленный ресурс в
+очередь. Автотесты покрывают controller lifecycle, Economy events, duplicate
+guard и Startup purchase flow. Результат ручного прогона должен фиксировать
+commit/APK/device и ожидаемые/фактические balance/queue counts.

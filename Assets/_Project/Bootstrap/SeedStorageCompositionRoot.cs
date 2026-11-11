@@ -6,11 +6,14 @@ using VrGame.Data.Crafting;
 using VrGame.Data.Fertilizers;
 using VrGame.Data.Orders;
 using VrGame.Data.Plants;
+using VrGame.Data.Shop;
 using VrGame.DataAssets;
 using VrGame.DataAssets.Crafting;
 using VrGame.DataAssets.Fertilizers;
 using VrGame.DataAssets.Orders;
 using VrGame.DataAssets.Plants;
+using VrGame.DataAssets.Shop;
+using VrGame.Domain.Delivery;
 using VrGame.Domain.Fertilizers;
 using VrGame.Domain.Crafting;
 using VrGame.Domain.Economy;
@@ -19,9 +22,11 @@ using VrGame.Domain.Inventory;
 using VrGame.Domain.Orders;
 using VrGame.Domain.Plants;
 using VrGame.Domain.SeedStorage;
+using VrGame.Domain.Shop;
 using VrGame.Presentation.Indicators;
 using VrGame.Presentation.Crafting;
 using VrGame.Presentation.Orders;
+using VrGame.Presentation.Shop;
 using VrGame.VRInteraction.Plants;
 using VrGame.VRInteraction.Fertilizers;
 using VrGame.VRInteraction.Harvesting;
@@ -118,15 +123,9 @@ namespace VrGame.Bootstrap
         [SerializeField] private MonoBehaviour orderBoardView;
         [SerializeField] private OrderDeliveryIndicatorProjectionSource deliveryIndicatorSource;
         private OrderDeliveryInteractionController deliveryController;
-        [SerializeField, Min(0)] private int startingBalance;
-
-        [SerializeField] private VrGame.DataAssets.Shop.ShopCatalogAsset shopCatalog;
-        [SerializeField] private Transform shopTabletAnchor;
         [SerializeField, Min(0)] private int startingBalance = 100;
-        public VrGame.Domain.Economy.EconomyService Economy { get; private set; }
-        public VrGame.Domain.Delivery.PendingDeliveryLedger Deliveries { get; private set; }
-        public VrGame.Domain.Shop.PurchaseService Purchases { get; private set; }
-        public VrGame.Presentation.Shop.ShopTabletController ShopTablet { get; private set; }
+        [SerializeField] private ShopCatalogAsset shopCatalog;
+        [SerializeField] private Transform shopTabletAnchor;
 
         private PlantGrowthController growthController;
         private IFertilizerApplicationView fertilizerApplicationView;
@@ -166,6 +165,10 @@ namespace VrGame.Bootstrap
         public OrderDeliveryCoordinator OrderDelivery { get; private set; }
         public EconomyService Economy { get; private set; }
         public EconomyEventRelay EconomyEvents => economyEvents;
+        public ShopCatalog ShopCatalog { get; private set; }
+        public PendingDeliveryLedger Deliveries { get; private set; }
+        public PurchaseService Purchases { get; private set; }
+        public ShopTabletController ShopTablet { get; private set; }
 
         private void Awake()
         {
@@ -187,17 +190,12 @@ namespace VrGame.Bootstrap
                 recipeCatalog == null || craftingController == null || craftingTableView == null ||
                 orderTemplateCatalog == null || orderBoardController == null || orderView == null ||
                 deliveryIndicatorSource == null || deliveryController == null ||
-                deliveryController.Interactable == null || startingBalance < 0)
+                deliveryController.Interactable == null || shopCatalog == null || shopTabletAnchor == null ||
+                startingBalance < 0)
                 throw new InvalidOperationException("Композиция станции саженцев настроена не полностью.");
 
             var runtimeItems = itemCatalog.Build();
-            if (shopCatalog == null || shopTabletAnchor == null) throw new InvalidOperationException("Shop tablet configuration missing.");
-            var economyEvents = new EconomyEventRelay();
-            Economy = new VrGame.Domain.Economy.EconomyService(startingBalance, economyEvents);
-            Deliveries = new VrGame.Domain.Delivery.PendingDeliveryLedger();
-            var offers = shopCatalog.Build(runtimeItems);
-            Purchases = new VrGame.Domain.Shop.PurchaseService(offers, Economy, Deliveries);
-            ShopTablet = ShopTabletFactory.Create(shopTabletAnchor, offers, Economy, Purchases, economyEvents);
+            ShopCatalog = shopCatalog.Build(runtimeItems);
             var runtimePlants = plantCatalog.Build(runtimeItems);
             var runtimeFertilizers = fertilizerCatalog.Build(runtimeItems);
             Recipes = recipeCatalog.Build(runtimeItems);
@@ -280,6 +278,14 @@ namespace VrGame.Bootstrap
             Orders = new OrderService(OrderTemplates, new SequentialOrderTemplateSelector(), orderEvents);
             Economy = new EconomyService(startingBalance, economyEvents);
             OrderDelivery = new OrderDeliveryCoordinator(PlayerInventory, Orders, Economy);
+            Deliveries = new PendingDeliveryLedger();
+            Purchases = new PurchaseService(ShopCatalog, Economy, Deliveries);
+            ShopTablet = ShopTabletFactory.Create(
+                shopTabletAnchor,
+                ShopCatalog,
+                Economy,
+                Purchases,
+                economyEvents);
             orderBoardController.Configure(Orders, runtimeItems.Items, orderEvents, orderView);
             deliveryIndicatorSource.Configure(Orders, orderEvents);
             deliveryController.Configure(deliveryController.Interactable, OrderDelivery, Orders);
