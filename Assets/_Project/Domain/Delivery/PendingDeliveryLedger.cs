@@ -21,6 +21,7 @@ namespace VrGame.Domain.Delivery
             Quantity = offer.Quantity;
             Representation = offer.Representation;
             PurchaseCommandId = purchaseCommandId;
+            Status = DeliveryStatus.Pending;
         }
 
         internal PendingDeliveryEntry(PendingDeliveryEntry source, DeliveryStatus status)
@@ -67,7 +68,7 @@ namespace VrGame.Domain.Delivery
         internal PendingDeliveryEntry Prepare(ShopOfferDefinition offer, Guid command)
         {
             if (entries.Count == int.MaxValue)
-                throw new InvalidOperationException("Delivery ledger capacity exhausted.");
+                throw new InvalidOperationException("Ёмкость очереди доставки исчерпана.");
             return new PendingDeliveryEntry(entries.Count + 1L, offer, command);
         }
         internal void Commit(PendingDeliveryEntry entry) => entries.Add(entry);
@@ -102,7 +103,8 @@ namespace VrGame.Domain.Delivery
                 var index = entries.FindIndex(value => value.Id == entryId);
                 if (index < 0) return DeliveryMutationResult.Reject(DeliveryRejection.UnknownEntry);
                 var entry = entries[index];
-                if (entry.Status == DeliveryStatus.Available) return DeliveryMutationResult.Success(entry, true);
+                if (entry.Status == DeliveryStatus.Available)
+                    return DeliveryMutationResult.Success(entry, replay: true, published: false);
                 if (entry.Status != DeliveryStatus.Pending) return DeliveryMutationResult.Reject(DeliveryRejection.InvalidState);
                 entry = new PendingDeliveryEntry(entry, DeliveryStatus.Available);
                 entries[index] = entry;
@@ -119,9 +121,18 @@ namespace VrGame.Domain.Delivery
             {
                 if (!context.IsValid || context.CommandId == Guid.Empty)
                     return DeliveryMutationResult.Reject(DeliveryRejection.InvalidContext);
-                if (claims.TryGetValue(context.CommandId, out var previous))
-                    return previous.Matches(entryId, inventory.Id, context)
-                        ? previous.Result.AsReplay() : DeliveryMutationResult.Reject(DeliveryRejection.CommandConflict);
+                if (claims.TryGetValue(context.CommandId, out var command))
+                {
+                    if (!command.Matches(entryId, inventory.Id, context))
+                        return DeliveryMutationResult.Reject(DeliveryRejection.CommandConflict);
+                    if (command.Result != null)
+                        return command.Result.AsReplay();
+                }
+                else
+                {
+                    command = new ClaimCommand(entryId, inventory.Id, context);
+                    claims.Add(context.CommandId, command);
+                }
                 var index = entries.FindIndex(value => value.Id == entryId);
                 if (index < 0) return DeliveryMutationResult.Reject(DeliveryRejection.UnknownEntry);
                 var entry = entries[index];
@@ -140,7 +151,7 @@ namespace VrGame.Domain.Delivery
                     var change = inventory.CommitPreparedAdd(prepared);
                     entries[index] = claimed;
                     var result = DeliveryMutationResult.Success(claimed);
-                    claims.Add(context.CommandId, new ClaimCommand(entryId, inventory.Id, context, result));
+                    command.Complete(result);
                     result.InventoryEventPublished = inventory.PublishPrepared(change);
                     result.QueueEventPublished = PublishChanged(claimed);
                     return result;
@@ -166,14 +177,14 @@ namespace VrGame.Domain.Delivery
             private readonly Guid entryId;
             private readonly InventoryId inventoryId;
             private readonly InventoryChangeContext context;
-            public ClaimCommand(Guid entryId, InventoryId inventoryId, InventoryChangeContext context, DeliveryMutationResult result)
+            public ClaimCommand(Guid entryId, InventoryId inventoryId, InventoryChangeContext context)
             {
                 this.entryId = entryId;
                 this.inventoryId = inventoryId;
                 this.context = context;
-                Result = result;
             }
-            public DeliveryMutationResult Result { get; }
+            public DeliveryMutationResult Result { get; private set; }
+            public void Complete(DeliveryMutationResult result) => Result = result;
             public bool Matches(Guid entry, InventoryId inventory, InventoryChangeContext candidate) =>
                 entryId == entry && inventoryId.Equals(inventory) && context.Reason == candidate.Reason && context.CorrelationId == candidate.CorrelationId;
         }

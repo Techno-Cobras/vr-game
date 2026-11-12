@@ -254,6 +254,18 @@ replay/conflict semantics без повторного списания или д
 Материализация, capacity и claim не принадлежат покупке и развиваются отдельно
 в delivery subsystem.
 
+`PendingDeliveryLedger` в DOMAIN владеет FIFO lifecycle купленных ресурсов:
+`Pending → Available → Claimed`. Immutable entry сохраняет purchase sequence,
+item, quantity и representation; одинаковые покупки не объединяются.
+Материализатор переводит запись в `Available` только после успешного staging, а
+неудачный spawn оставляет `Pending`. `Claim` атомарно подготавливает Inventory
+add и фиксирует Inventory вместе с `Claimed` до callbacks; ошибка добавления
+оставляет `Available` для точного retry. Первый валидный Command ID резервирует
+entry/inventory/context payload, поэтому его нельзя переиспользовать для другой
+выдачи даже после отказа. `Added` и `Changed` позволяют Delivery Box наблюдать
+очередь; mutations из callback блокируются как re-entry и планируются адаптером
+на следующий tick.
+
 `ShopTabletController` в PRESENTATION строит read model из `ShopCatalog` и
 баланса единственного session `EconomyService`. Он открывает каталог только при
 доступных focus/tracking, переключает товары и передаёт подтверждение в

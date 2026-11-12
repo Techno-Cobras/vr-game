@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
@@ -48,15 +49,54 @@ namespace VrGame.Tests.EditMode.Delivery
         {
             var fixture = new Fixture();
             var entry = fixture.Buy();
+            var second = fixture.Buy();
             fixture.Queue.MarkAvailable(entry.Id);
+            fixture.Queue.MarkAvailable(second.Id);
             fixture.Inventory.Add(entry.ItemId, int.MaxValue, Context());
             var context = Context();
             var result = fixture.Queue.Claim(entry.Id, fixture.Inventory, context);
             Assert.That(result.InventoryRejection, Is.EqualTo(InventoryRejection.ArithmeticOverflow));
             Assert.That(fixture.Queue.GetSnapshot()[0].Status, Is.EqualTo(DeliveryStatus.Available));
             Assert.That(fixture.Inventory.GetQuantity(entry.ItemId), Is.EqualTo(int.MaxValue));
+            Assert.That(fixture.Queue.Claim(second.Id, fixture.Inventory, context).Rejection,
+                Is.EqualTo(DeliveryRejection.CommandConflict));
+            var otherInventory = new InventoryAggregate(InventoryId.New(), fixture.Items, new InventorySink());
+            Assert.That(fixture.Queue.Claim(entry.Id, otherInventory, context).Rejection,
+                Is.EqualTo(DeliveryRejection.CommandConflict));
             fixture.Inventory.Remove(entry.ItemId, int.MaxValue, Context());
             Assert.That(fixture.Queue.Claim(entry.Id, fixture.Inventory, context).Succeeded, Is.True);
+        }
+
+        [Test]
+        public void Changes_PublishPendingAvailableClaimed_AndAvailableReplayDoesNotRepublish()
+        {
+            var fixture = new Fixture();
+            var added = new List<DeliveryStatus>();
+            var changed = new List<DeliveryStatus>();
+            fixture.Queue.Added += entry => added.Add(entry.Status);
+            fixture.Queue.Changed += entry => changed.Add(entry.Status);
+
+            var entry = fixture.Buy();
+            var available = fixture.Queue.MarkAvailable(entry.Id);
+            var changedBeforeReplay = changed.Count;
+            var replay = fixture.Queue.MarkAvailable(entry.Id);
+            var claimed = fixture.Queue.Claim(entry.Id, fixture.Inventory, Context());
+
+            Assert.That(available.Succeeded, Is.True);
+            Assert.That(replay.Succeeded, Is.True);
+            Assert.That(replay.IsReplay, Is.True);
+            Assert.That(replay.QueueEventPublished, Is.False);
+            Assert.That(changed, Has.Count.EqualTo(changedBeforeReplay + 1));
+            Assert.That(claimed.Succeeded, Is.True);
+            Assert.That(added, Is.EqualTo(new[] { DeliveryStatus.Pending }));
+            Assert.That(changed, Is.EqualTo(new[]
+            {
+                DeliveryStatus.Pending,
+                DeliveryStatus.Available,
+                DeliveryStatus.Claimed
+            }));
+            Assert.That(fixture.Queue.MarkAvailable(Guid.NewGuid()).Rejection,
+                Is.EqualTo(DeliveryRejection.UnknownEntry));
         }
 
         [Test]
@@ -87,7 +127,7 @@ namespace VrGame.Tests.EditMode.Delivery
         }
 
         [Test]
-        public void UnknownItemAndEntry_RejectWithoutLoss_ThenCorrectInventoryCanRetry()
+        public void UnknownItemAndEntry_RejectWithoutLoss_ThenNewCommandCanRetry()
         {
             var fixture = new Fixture();
             var entry = fixture.Buy();
@@ -100,23 +140,26 @@ namespace VrGame.Tests.EditMode.Delivery
             Assert.That(fixture.Queue.GetSnapshot()[0].Status, Is.EqualTo(DeliveryStatus.Available));
             Assert.That(fixture.Queue.Claim(Guid.NewGuid(), fixture.Inventory, Context()).Rejection, Is.EqualTo(DeliveryRejection.UnknownEntry));
             Assert.That(fixture.Queue.Claim(entry.Id, fixture.Inventory, default).Rejection, Is.EqualTo(DeliveryRejection.InvalidContext));
-            Assert.That(fixture.Queue.Claim(entry.Id, fixture.Inventory, context).Succeeded, Is.True);
-            Assert.That(fixture.Queue.Claim(entry.Id, wrongInventory, context).Rejection, Is.EqualTo(DeliveryRejection.CommandConflict));
+            Assert.That(fixture.Queue.Claim(entry.Id, fixture.Inventory, context).Rejection, Is.EqualTo(DeliveryRejection.CommandConflict));
+            Assert.That(fixture.Queue.Claim(entry.Id, wrongInventory, context).InventoryRejection, Is.EqualTo(InventoryRejection.UnknownItem));
             Assert.That(wrongInventory.Version, Is.Zero);
+            Assert.That(fixture.Queue.Claim(entry.Id, fixture.Inventory, Context()).Succeeded, Is.True);
         }
         private sealed class Fixture
         {
             public readonly PendingDeliveryLedger Queue = new PendingDeliveryLedger();
             public readonly InventorySink Sink = new InventorySink();
             public readonly InventoryAggregate Inventory;
+            public readonly VrGame.Data.Items.ItemCatalog Items;
             private readonly PurchaseService purchases;
             private readonly VrGame.Data.Shop.ProductId product;
             public Fixture()
             {
                 var items = AssetDatabase.LoadAssetAtPath<ItemCatalogAsset>("Assets/_Project/SeedStorage/Data/SeedStorageItemCatalog.asset").Build();
                 var catalog = AssetDatabase.LoadAssetAtPath<ShopCatalogAsset>("Assets/_Project/Shop/Samples/ShopCatalog.asset").Build(items);
+                Items = items.Items;
                 product = catalog.Definitions[0].Id;
-                Inventory = new InventoryAggregate(InventoryId.New(), items.Items, Sink);
+                Inventory = new InventoryAggregate(InventoryId.New(), Items, Sink);
                 purchases = new PurchaseService(catalog, new EconomyService(1000, new EconomySink()), Queue);
             }
             public PendingDeliveryEntry Buy() => purchases.Purchase(product, new EconomyChangeContext("buy", Guid.NewGuid(), Guid.NewGuid())).Entry;

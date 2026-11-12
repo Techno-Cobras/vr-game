@@ -28,7 +28,7 @@ namespace VrGame.Domain.Delivery
         public bool InventoryEventPublished { get; internal set; }
         internal static DeliveryMutationResult Reject(DeliveryRejection rejection, InventoryRejection inventory = InventoryRejection.None) =>
             new DeliveryMutationResult(rejection, null, inventory, false, false);
-        internal static DeliveryMutationResult Success(PendingDeliveryEntry entry, bool replay = false, bool published = true) =>
+        internal static DeliveryMutationResult Success(PendingDeliveryEntry entry, bool replay = false, bool published = false) =>
             new DeliveryMutationResult(DeliveryRejection.None, entry, InventoryRejection.None, replay, published);
         internal DeliveryMutationResult AsReplay() => new DeliveryMutationResult(Rejection, Entry, InventoryRejection, true, QueueEventPublished)
         { InventoryEventPublished = InventoryEventPublished };
