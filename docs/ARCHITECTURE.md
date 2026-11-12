@@ -266,6 +266,24 @@ entry/inventory/context payload, поэтому его нельзя переис
 очередь; mutations из callback блокируются как re-entry и планируются адаптером
 на следующий tick.
 
+Runtime `DeliveryBoxFactory` создаёт один ящик с конечным набором контролируемых
+слотов без нового владельца сцены, XR Origin или Inventory. `DeliveryBoxController`
+сверяет физические проекции с immutable snapshot очереди: сначала восстанавливает
+потерянные `Available`, затем заполняет свободную capacity записями `Pending` в
+FIFO-порядке. Неуспешный staging не меняет очередь, а заполненная capacity не
+теряет записи. Callback очереди только выставляет dirty-флаг; reconciliation
+проходит на следующем Unity tick и блокируется при pause/focus loss.
+
+`DeliveryItemBinding` связывает один slot object с одним entry и хранит стабильный
+`InventoryChangeContext` для повторов. Только успешный XRI select вызывает
+атомарный `Claim`; отказ возвращает объект в слот, успех освобождает слот и
+оставляет предмет игроку. Materializer назначает существующий `SeedItemInstance`
+или `FertilizerItemInstance`, поэтому полученный ресурс проходит в planting и
+fertilizer adapters без второго состояния. Для удобрения physical ownership
+включается после claim: уничтожение неиспользованного объекта компенсирует
+Inventory. MVP materializer честно оставляет в очереди записи с quantity не
+равным единице, пока не появится отдельный batch-handoff контракт.
+
 `ShopTabletController` в PRESENTATION строит read model из `ShopCatalog` и
 баланса единственного session `EconomyService`. Он открывает каталог только при
 доступных focus/tracking, переключает товары и передаёт подтверждение в

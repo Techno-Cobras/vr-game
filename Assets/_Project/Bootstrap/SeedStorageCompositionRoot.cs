@@ -33,6 +33,7 @@ using VrGame.VRInteraction.Harvesting;
 using VrGame.VRInteraction.Orders;
 using VrGame.VRInteraction.SeedStorage;
 using VrGame.VRInteraction.Watering;
+using VrGame.VRInteraction.Delivery;
 
 namespace VrGame.Bootstrap
 {
@@ -169,6 +170,7 @@ namespace VrGame.Bootstrap
         public PendingDeliveryLedger Deliveries { get; private set; }
         public PurchaseService Purchases { get; private set; }
         public ShopTabletController ShopTablet { get; private set; }
+        public DeliveryBoxController DeliveryBox { get; private set; }
 
         private void Awake()
         {
@@ -280,6 +282,14 @@ namespace VrGame.Bootstrap
             OrderDelivery = new OrderDeliveryCoordinator(PlayerInventory, Orders, Economy);
             Deliveries = new PendingDeliveryLedger();
             Purchases = new PurchaseService(ShopCatalog, Economy, Deliveries);
+            DeliveryBox = DeliveryBoxFactory.Create(
+                transform,
+                runtimeItems,
+                runtimePlants.Plants,
+                runtimeFertilizers,
+                Deliveries,
+                PlayerInventory,
+                CleanupIssuedFertilizer);
             ShopTablet = ShopTabletFactory.Create(
                 shopTabletAnchor,
                 ShopCatalog,
@@ -304,6 +314,7 @@ namespace VrGame.Bootstrap
 
         private void OnDestroy()
         {
+            if (DeliveryBox != null) Destroy(DeliveryBox.gameObject);
             if (ShopTablet != null) Destroy(ShopTablet.gameObject);
             if (fertilizerReceiver != null && fertilizerApplicationView != null)
                 fertilizerReceiver.ApplicationCompleted -= fertilizerApplicationView.RenderApplication;
