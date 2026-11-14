@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using VrGame.Data.Items;
 using VrGame.Domain.Orders;
 
 namespace VrGame.VRInteraction.Orders
@@ -22,6 +23,8 @@ namespace VrGame.VRInteraction.Orders
         private XRSimpleInteractable subscribedInteractable;
         private IXRSelectInteractor currentInteractor;
         private OrderDeliveryContext currentContext;
+        private ItemId currentMedicineItemId;
+        private int currentQuantity;
         private bool hasCurrentContext;
         private bool applicationFocused = true;
         private bool applicationPaused;
@@ -47,6 +50,7 @@ namespace VrGame.VRInteraction.Orders
                 throw new ArgumentNullException(nameof(orderService));
 
             Unsubscribe();
+            ClearIntent();
             interactable = deliveryInteractable;
             coordinator = deliveryCoordinator;
             orders = orderService;
@@ -65,6 +69,9 @@ namespace VrGame.VRInteraction.Orders
             if (!hasCurrentContext || !ReferenceEquals(currentInteractor, selectingInteractor))
             {
                 currentInteractor = selectingInteractor;
+                var active = GetActiveOrder();
+                currentMedicineItemId = active?.MedicineItemId ?? default;
+                currentQuantity = active?.Quantity ?? 0;
                 currentContext = new OrderDeliveryContext(
                     "VR-доставка лекарства по активному заказу",
                     Guid.NewGuid(),
@@ -72,23 +79,9 @@ namespace VrGame.VRInteraction.Orders
                 hasCurrentContext = true;
             }
 
-            var snapshot = orders.GetSnapshot();
-            OrderSnapshot active = null;
-            if (snapshot.ActiveOrderId.HasValue)
-            {
-                foreach (var order in snapshot.Orders)
-                {
-                    if (order.OrderId == snapshot.ActiveOrderId.Value)
-                    {
-                        active = order;
-                        break;
-                    }
-                }
-            }
-
             var result = coordinator.Deliver(
-                active?.MedicineItemId ?? default,
-                active?.Quantity ?? 0,
+                currentMedicineItemId,
+                currentQuantity,
                 currentContext);
             if (result.Succeeded)
             {
@@ -162,7 +155,22 @@ namespace VrGame.VRInteraction.Orders
         {
             currentInteractor = null;
             currentContext = default;
+            currentMedicineItemId = default;
+            currentQuantity = 0;
             hasCurrentContext = false;
+        }
+
+        private OrderSnapshot GetActiveOrder()
+        {
+            var snapshot = orders.GetSnapshot();
+            if (!snapshot.ActiveOrderId.HasValue)
+                return null;
+
+            foreach (var order in snapshot.Orders)
+                if (order.OrderId == snapshot.ActiveOrderId.Value)
+                    return order;
+
+            return null;
         }
 
         private void PlayFeedback(
