@@ -39,7 +39,7 @@ namespace VrGame.Tests.EditMode.SeedStorage
                     new PlantDefinition(Plant, new GrowthDuration(20f), Seed, Harvest,
                         new WaterRequestRange(.5f, .5f), new[]
                         {
-                            new PlantStageDefinition(0f, new PlantRepresentationKey("representation.scenario-a"))
+                            new PlantStageDefinition(0f, new PlantRepresentationKey("representation.plant.scenario-a"))
                         }, 3)
                 });
                 var fertilizers = new FertilizerCatalog(new[]
