@@ -1,7 +1,9 @@
 # Unity CI
 
-GitHub Actions запускает `.github/workflows/unity-ci.yml` при push в `main`
-и `codex/**`, для pull request в `main` и вручную через Actions → Unity CI.
+GitHub Actions запускает `.github/workflows/unity-ci.yml` при push в `main`,
+для pull request в `main` и вручную через Actions → Unity CI. Ветки задач
+проверяются через pull request, чтобы один commit не запускал два одинаковых
+Unity job одновременно.
 Версия Editor читается из `ProjectSettings/ProjectVersion.txt` (`6000.3.25f1`).
 Локальная установка Unity для запуска CI не нужна.
 
