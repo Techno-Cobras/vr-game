@@ -25,3 +25,6 @@ pwsh -NoProfile -File scripts/Build-Android.ps1
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Полный цикл выращивания: [VR Scenario A](docs/manual/vr32-cultivation-scenario-a.md).
+
+Автоматические проверки в GitHub Actions и настройка Unity license описаны в
+[`docs/CI.md`](docs/CI.md).
